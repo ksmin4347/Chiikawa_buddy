@@ -9,3 +9,5 @@
 - 재생성: `.venv\Scripts\python.exe tools\generate_assets.py`
 
 PNG는 512×512 RGBA이며 앱 크기에 맞춰 한 번 스케일링하고 캐시합니다. manifest는 현재 모루 번들 에셋용입니다. 제품 방향은 개발자 제공 캐릭터를 앱에 포함하고 사용자가 선택하는 방식으로 변경했습니다. 치이카와·하치와레·우사기 자료는 [characters 안내](characters/README.md)에 따라 준비합니다. 세 캐릭터의 이미지와 선택 UI는 아직 연결하지 않았습니다.
+
+세 캐릭터의 13개 상황별 폴더, PNG 규격, 정지 이미지/연속 프레임의 차이, 우선 준비할 7가지 상태는 [상세 준비 안내](characters/README.md)에 정리했습니다.

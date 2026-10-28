@@ -5,8 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from desktop_buddy.core.settings import Settings
-
-SCHEMA_VERSION = 1
+from desktop_buddy.database.migrations import SCHEMA_VERSION, migrate
 
 
 class Store:
@@ -30,11 +29,9 @@ class Store:
                     ) as backup:
                         self.connection.backup(backup)
                 with self.connection:
-                    self.connection.execute(
-                        "CREATE TABLE IF NOT EXISTS app_settings "
-                        "(setting_key TEXT PRIMARY KEY, setting_value TEXT NOT NULL)"
-                    )
-                    self.connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+                    # An explicit BEGIN also makes SQLite DDL transactional.
+                    self.connection.execute("BEGIN IMMEDIATE")
+                    migrate(self.connection, version)
         except Exception:
             self.connection.close()
             raise

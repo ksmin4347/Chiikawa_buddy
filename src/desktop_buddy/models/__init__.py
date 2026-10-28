@@ -1,0 +1,1 @@
+"""Typed local planning records."""

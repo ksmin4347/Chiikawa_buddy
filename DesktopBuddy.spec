@@ -1,11 +1,12 @@
 # Run from the project root: python -m PyInstaller --noconfirm DesktopBuddy.spec
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_data_files
 
 root = Path(SPECPATH)
 a = Analysis(
     [str(root / 'desktop_buddy_entry.py')],
     pathex=[str(root / 'src')],
-    datas=[(str(root / 'assets'), 'assets')],
+    datas=[(str(root / 'assets'), 'assets')] + collect_data_files('tzdata'),
     hiddenimports=[],
     excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.QtQml', 'PySide6.QtQuick',

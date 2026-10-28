@@ -87,3 +87,45 @@ def test_lock_permission_error_is_reported(qapp, tmp_path):
     )
     with pytest.raises(RuntimeError, match="권한"):
         guard.acquire()
+
+
+def test_quit_from_visible_management_window_ends_child_process(qapp, tmp_path):
+    import sys
+    from pathlib import Path
+
+    from PySide6.QtCore import QProcess
+
+    source = Path(__file__).resolve().parents[1] / "src"
+    code = f"""
+import sys
+from pathlib import Path
+sys.path.insert(0, {str(source)!r})
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QApplication
+from desktop_buddy.app import BuddyApplication
+from desktop_buddy.database.store import Store
+from desktop_buddy.services.single_instance import SingleInstance
+app = QApplication([])
+app.setQuitOnLastWindowClosed(False)
+path = Path(sys.argv[1])
+guard = SingleInstance(path)
+assert guard.acquire()
+store = Store(path/'buddy.db')
+controller = BuddyApplication(app, store, guard, path)
+controller.manager.open_page(3)
+QTimer.singleShot(100, controller.manager.quit_requested.emit)
+QTimer.singleShot(3000, lambda: app.exit(7))
+status = app.exec()
+assert controller._closed
+assert not controller.notifications.timer.isActive()
+sys.exit(status)
+"""
+    process = QProcess()
+    process.start(sys.executable, ["-c", code, str(tmp_path)])
+    assert process.waitForStarted(3000)
+    finished = process.waitForFinished(6000)
+    if not finished:
+        process.kill()
+        process.waitForFinished(3000)
+    assert finished
+    assert process.exitCode() == 0, bytes(process.readAllStandardError()).decode(errors="replace")

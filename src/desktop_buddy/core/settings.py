@@ -1,3 +1,4 @@
+import re
 from dataclasses import asdict, dataclass, fields
 
 from desktop_buddy.core.metadata import DEFAULT_CHARACTER_NAME
@@ -13,6 +14,12 @@ class Settings:
     bubbles_enabled: bool = True
     show_on_start: bool = True
     theme: str = "light"
+    week_start: int = 6
+    notifications_enabled: bool = True
+    notifications_paused: bool = False
+    quiet_enabled: bool = False
+    quiet_start: str = "22:00"
+    quiet_end: str = "08:00"
     x: int | None = None
     y: int | None = None
 
@@ -29,6 +36,14 @@ class Settings:
                 clean[field.name] = (
                     max(lower, min(upper, value))
                     if type(value) is int
+                    else getattr(defaults, field.name)
+                )
+            elif field.name == "week_start":
+                clean[field.name] = value if type(value) is int and value in (0, 6) else 6
+            elif field.name in {"quiet_start", "quiet_end"}:
+                clean[field.name] = (
+                    value
+                    if isinstance(value, str) and re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value)
                     else getattr(defaults, field.name)
                 )
             elif field.name == "character_name":

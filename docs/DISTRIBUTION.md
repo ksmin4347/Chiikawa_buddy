@@ -1,8 +1,8 @@
 # 초기 Windows 빌드
 
-`build_windows.bat`은 자동 테스트 후 PyInstaller로 `dist\DesktopBuddy`를 만듭니다. 현재 버전은 0.1.0이며 앱 아이콘과 Windows 파일 버전 리소스를 포함합니다.
+`build_windows.bat`은 자동 테스트 후 PyInstaller로 `dist\DesktopBuddy`를 만듭니다. 현재 버전은 0.2.0이며 앱 아이콘과 Windows 파일 버전 리소스를 포함합니다.
 
-현재 PC의 Windows 앱 제어 정책이 새 EXE의 실행을 차단했습니다. 빌드는 성공했지만 EXE의 실제 실행은 미검증입니다. 정책을 변경하거나 우회하지 않았습니다. 현재 PC에서는 `run_windows.bat`으로 개발 실행본을 사용하세요.
+현재 PC의 Windows 앱 제어 정책이 이전 EXE의 실행을 차단했습니다. 빌드는 성공했지만 EXE의 실제 실행은 미검증입니다. 정책을 변경하거나 우회하지 않았습니다. 현재 PC에서는 `run_windows.bat`으로 개발 실행본을 사용하세요.
 
 ## 폴더형 실행
 
@@ -23,6 +23,8 @@
 .\.venv\Scripts\python.exe -m PyInstaller --noconfirm DesktopBuddy.spec
 ```
 
-명시적인 spec 파일에 에셋, Qt 의존성, Windows 아이콘/버전을 고정했습니다. WebEngine/QML/PDF 모듈을 앱에서 사용하지 않으므로 제외합니다. 런타임 요구사항은 PySide6-Essentials이고 테스트/빌드 도구는 개발 의존성입니다.
+명시적인 spec 파일에 에셋, Qt 의존성, dateutil, tzdata 시간대 데이터, Windows 아이콘/버전을 포함했습니다. WebEngine/QML/PDF 모듈을 앱에서 사용하지 않으므로 제외합니다. 런타임 요구사항은 PySide6-Essentials이고 테스트/빌드 도구는 개발 의존성입니다.
 
 배포 전에는 전체 수동 체크리스트, Windows 10/11, 여러 DPI와 모니터, 절전, 기존 DB 유지, 정상 종료, 오류 로그, 장시간 리소스 사용을 확인해야 합니다. 초기 EXE가 생성되었다는 사실만으로 정식 배포 검증 완료를 뜻하지 않습니다.
+
+0.1.0 사용자 DB는 자동 백업 후 스키마 2로 이전합니다. 이전과 설정 유지 자체는 자동 검증했으며 실제 배포 업데이트 경로는 PHASE 8에서 확인합니다. 0.2.0 EXE는 빌드와 파일 포함 검증까지 완료했고 실행은 미검증입니다.

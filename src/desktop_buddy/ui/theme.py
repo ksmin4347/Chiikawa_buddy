@@ -56,6 +56,31 @@ def apply_theme(app: QApplication, theme: str) -> None:
         QToolTip, QMenu {{ color: {text}; background: {card}; border: 1px solid {line}; }}
         QMenu::item {{ padding: 9px 24px; }}
         QMenu::item:selected {{ background: {soft}; }}
+        QDialog {{ background: {bg}; }}
+        QTableWidget, QListWidget, QGraphicsView, QTextEdit {{
+            background: {card}; color: {text}; border: 1px solid {line};
+            alternate-background-color: {bg}; gridline-color: {line}; }}
+        QTableWidget::item, QListWidget::item {{ padding: 6px; }}
+        QTableWidget::item:selected, QListWidget::item:selected {{
+            background: {soft}; color: {text}; }}
+        QHeaderView::section {{ background: {side}; color: {muted}; padding: 7px;
+            border: 0; border-bottom: 1px solid {line}; }}
+        QDateEdit, QTimeEdit, QDateTimeEdit {{ background: {bg}; color: {text};
+            border: 1px solid {line}; border-radius: 7px; padding: 7px; }}
+        QFrame#dayCell {{ background: {card}; border: 0; }}
+        QFrame#dayCell[outside='true'] {{ background: {bg}; }}
+        QFrame#dayCell[selected='true'] {{ background: {soft}; }}
+        QPushButton#dayNumber {{ padding: 0 2px; min-height: 0; border: 0;
+            text-align: left; background: transparent; font-size: 12px; }}
+        QPushButton#dayNumber[sunday='true'] {{ color: #bb514b; }}
+        QPushButton#dayNumber[saturday='true'] {{ color: #5478b0; }}
+        QPushButton#calendarEntry, QPushButton#calendarMore {{ padding: 0 3px;
+            min-height: 0; border: 0; border-radius: 3px; background: transparent;
+            text-align: left; font-size: 12px; font-weight: 400; }}
+        QPushButton#calendarEntry:hover, QPushButton#calendarMore:hover {{ background: {soft}; }}
+        QProgressBar {{ background: {soft}; color: {text}; border: 0; border-radius: 6px;
+            text-align: center; font-size: 11px; }}
+        QProgressBar::chunk {{ background: #7fa98a; border-radius: 6px; }}
         QScrollArea {{ border: 0; }}
         QScrollBar:vertical {{ background: {bg}; width: 10px; }}
         QScrollBar::handle:vertical {{ background: {line}; border-radius: 5px; min-height: 30px; }}

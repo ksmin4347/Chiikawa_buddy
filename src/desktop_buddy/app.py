@@ -7,6 +7,8 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from desktop_buddy.characters.animation import AnimationState, load_clips
 from desktop_buddy.core.metadata import APP_NAME
 from desktop_buddy.core.paths import asset_directory
+from desktop_buddy.services.notification_service import NotificationService
+from desktop_buddy.services.planning_service import PlanningService
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.management import ManagementWindow
 from desktop_buddy.ui.pet import PetWindow
@@ -22,11 +24,14 @@ class BuddyApplication:
         self._theme = None
         self._position_ready = False
         self.settings = SettingsService(store)
+        self.planning = PlanningService(store)
         self.animation = AnimationState(load_clips(asset_directory() / "default_character"))
         self.pet = PetWindow(self.animation, self.settings.current)
         icon = QIcon(self.animation.frame)
         app.setWindowIcon(icon)
-        self.manager = ManagementWindow(self.settings, self.animation.frame, data_dir)
+        self.manager = ManagementWindow(
+            self.settings, self.animation.frame, data_dir, self.planning
+        )
         self.tray = QSystemTrayIcon(icon, app)
         self.tray.setToolTip(f"{APP_NAME} · 더블클릭하면 관리창")
         self.tray_menu = QMenu()
@@ -34,16 +39,16 @@ class BuddyApplication:
         self.show_action = self.tray_menu.addAction("캐릭터 숨기기", self.toggle_pet)
         self.tray_menu.addAction("캐릭터를 오른쪽 아래로 이동", self.reset_position)
         self.tray_menu.addSeparator()
-        self.tray_menu.addAction("설정", lambda: self.manager.open_page(1))
+        self.tray_menu.addAction("설정", lambda: self.manager.open_page(3))
         self.tray_menu.addSeparator()
-        self.tray_menu.addAction("프로그램 종료", app.quit)
+        self.tray_menu.addAction("프로그램 종료", self.quit)
         self.tray.setContextMenu(self.tray_menu)
         self._tray_click = QTimer(app)
         self._tray_click.setSingleShot(True)
         self._tray_click.timeout.connect(self.toggle_pet)
         self.tray.activated.connect(self._tray_activated)
         self.pet.manage_requested.connect(self.manager.open_page)
-        self.pet.quit_requested.connect(app.quit)
+        self.pet.quit_requested.connect(self.quit)
         self.pet.hide_requested.connect(self.hide_pet)
         self.pet.reset_requested.connect(self.reset_position)
         self.pet.position_changed.connect(lambda x, y: self.settings.update(x=x, y=y))
@@ -52,7 +57,7 @@ class BuddyApplication:
         self.manager.find_requested.connect(self.find_pet)
         self.manager.toggle_pet_requested.connect(self.toggle_pet)
         self.manager.reset_requested.connect(self.reset_position)
-        self.manager.quit_requested.connect(app.quit)
+        self.manager.quit_requested.connect(self.quit)
         self.manager.closing.connect(self._manager_closed)
         self.settings.changed.connect(self._settings_changed)
         self.settings.save_failed.connect(self._save_error)
@@ -61,6 +66,12 @@ class BuddyApplication:
         app.screenRemoved.connect(self.pet.ensure_visible_position)
         for screen in QGuiApplication.screens():
             self._screen_added(screen)
+        self.planning.task_completed.connect(self._task_completed)
+        self.notifications = NotificationService(self.planning, self.settings)
+        self.notifications.due.connect(self._notify)
+        self.notifications.failed.connect(
+            lambda text: self.manager.statusBar().showMessage(text, 15000)
+        )
         app.aboutToQuit.connect(self.shutdown)
         self._settings_changed(self.settings.current)
         current = self.settings.current
@@ -77,6 +88,28 @@ class BuddyApplication:
             QTimer.singleShot(
                 700, lambda: self.pet.speak("반가워요! 나를 더블클릭하면 관리창이 열려요.")
             )
+
+        self.notifications.start()
+
+    def _task_completed(self) -> None:
+        if not self.settings.current.reduce_motion:
+            self.animation.play("happy")
+        self.pet.speak("하나 끝냈네요. 잘했어요! 잠깐 숨을 돌려도 좋아요.")
+
+    def _notify(self, reminders) -> None:
+        title = "다가오는 일정" if len(reminders) == 1 else f"알림 {len(reminders)}개"
+        lines = [
+            f"{'마감' if value.occurrence.kind == 'task' else '일정'} · {value.occurrence.title}"
+            for value in reminders[:4]
+        ]
+        if len(reminders) > 4:
+            lines.append(f"외 {len(reminders) - 4}개 · 캘린더에서 확인해 주세요.")
+        text = "\n".join(lines)
+        if self.tray.isVisible() and QSystemTrayIcon.supportsMessages():
+            self.tray.showMessage(title, text, QSystemTrayIcon.MessageIcon.Information, 8000)
+        else:
+            self.manager.statusBar().showMessage(text, 15000)
+            self.pet.speak(lines[0])
 
     def _screen_added(self, screen) -> None:
         screen.availableGeometryChanged.connect(self.pet.ensure_visible_position)
@@ -108,7 +141,7 @@ class BuddyApplication:
         logging.getLogger(__name__).warning("Settings save failed")
         self.manager.save_status.setText(message)
         self.manager.statusBar().showMessage(message, 15000)
-        self.manager.open_page(1)
+        self.manager.open_page(3)
         self.manager.refresh(self.settings.current)
         self.manager.save_status.setText(message)
 
@@ -151,10 +184,18 @@ class BuddyApplication:
         if show:
             self.find_pet()
 
+    def quit(self) -> None:
+        # Normal window-close handlers keep the buddy alive; explicitly permit a full exit.
+        self.manager.allow_close = True
+        self.pet.allow_close = True
+        self.shutdown()
+        self.app.quit()
+
     def shutdown(self) -> None:
         if self._closed:
             return
         self._closed = True
+        self.notifications.stop()
         self._tray_click.stop()
         self.pet._click_timer.stop()
         self.pet.animation_timer.stop()

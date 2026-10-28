@@ -21,6 +21,7 @@ class PetWindow(QWidget):
     def __init__(self, animation: AnimationState, settings: Settings):
         flags = Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
         super().__init__(None, flags)
+        self.allow_close = False
         self.setWindowTitle(f"{APP_NAME} · 캐릭터")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -198,5 +199,8 @@ class PetWindow(QWidget):
         self.position_changed.emit(self.x(), self.y())
 
     def closeEvent(self, event) -> None:
+        if self.allow_close:
+            event.accept()
+            return
         event.ignore()
         self.hide_requested.emit()

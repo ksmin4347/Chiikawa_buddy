@@ -5,7 +5,7 @@ import pytest
 from PySide6.QtTest import QSignalSpy
 
 from desktop_buddy.core.settings import Settings
-from desktop_buddy.database.store import Store
+from desktop_buddy.database.store import SCHEMA_VERSION, Store
 from desktop_buddy.services.settings_service import SettingsService
 
 
@@ -17,7 +17,7 @@ def test_settings_survive_restart(tmp_path):
     store.close()
     reopened = Store(path)
     assert reopened.load_settings() == expected
-    assert reopened.connection.execute("PRAGMA user_version").fetchone()[0] == 1
+    assert reopened.connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     reopened.close()
 
 

@@ -1,0 +1,12 @@
+* text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.py text eol=lf
+*.md text eol=lf whitespace=-blank-at-eol
+*.toml text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.spec text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.ico binary

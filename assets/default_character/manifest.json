@@ -1,0 +1,35 @@
+{
+  "id": "moru",
+  "name": "모루",
+  "author": "Desktop Buddy project",
+  "states": {
+    "idle": {
+      "fps": 3,
+      "loop": true,
+      "frames": [
+        "idle/frame_001.png",
+        "idle/frame_002.png",
+        "idle/frame_003.png",
+        "idle/frame_004.png",
+        "idle/frame_005.png",
+        "idle/frame_006.png",
+        "idle/frame_007.png",
+        "idle/frame_008.png"
+      ]
+    },
+    "happy": {
+      "fps": 8,
+      "loop": false,
+      "frames": [
+        "happy/frame_001.png",
+        "happy/frame_002.png",
+        "happy/frame_003.png",
+        "happy/frame_004.png",
+        "happy/frame_005.png",
+        "happy/frame_006.png",
+        "happy/frame_007.png",
+        "happy/frame_008.png"
+      ]
+    }
+  }
+}

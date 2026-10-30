@@ -1,4 +1,4 @@
-# 아키텍처 — 0.3.0
+# 아키텍처 — 0.4.0
 
 ## 연결 구조
 
@@ -10,16 +10,21 @@ flowchart LR
     App --> Planning[PlanningService]
     App --> Notifications[NotificationService]
     App --> Focus[FocusTimerService]
+    App --> Companion[CompanionService / LocalDayGuard]
+    Companion --> Routines[CompanionRepository]
+    App --> Briefing[BriefingService]
+    Briefing --> Routines
+    Routines --> DB
     Focus --> Stats[StudyStatistics]
     Focus --> FocusRepo[FocusRepository]
     Stats --> FocusRepo
     FocusRepo --> DB
-    App --> Views[한 관리창: 홈 / 계획 / 달력 / 집중 / 통계 / 설정]
+    App --> Views[한 관리창: 홈 / 계획 / 달력 / 집중 / 통계 / 생활 / 설정]
     App --> Pet[펫 / 말풍선 / 트레이]
     Views --> Settings
     Views --> Planning
     Planning --> Repo[PlanningRepository]
-    Repo --> DB[SQLite 스키마 3]
+    Repo --> DB[SQLite 스키마 4]
     Settings --> DB
     Notifications --> Planning
     Notifications --> Repo
@@ -39,7 +44,7 @@ flowchart LR
 
 ## 저장소
 
-`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 3`.
+`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 4`.
 
 | 테이블 | 역할 |
 |---|---|
@@ -86,7 +91,7 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 
 ## 미래 경계 — 미구현
 
-감정 판단, 브리핑, 오프라인 명령, 개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
+오프라인 명령, 개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
 
 
 ## 집중 시간과 복구
@@ -102,3 +107,16 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 `FocusPage`, `StatisticsPage`, `MiniTimer`는 계산과 저장을 서비스에 맡긴다. 통계는 보이는 동안 체크포인트/날짜 주기에 갱신한다. 작은 타이머는 마우스 입력을 통과시키고 펫 위치·화면 작업 영역을 따른다. 애니메이션은 focus/break 기본 상태와 일회성 반응을 분리하여 반응 뒤 현재 기본 상태로 돌아간다.
 
 빌드는 `assets/default_character`와 `assets/icons`만 명시적으로 포함한다. 준비 중인 `assets/characters`의 사용자 자료가 배포본에 섞이지 않는다.
+
+
+## 생활 상태와 안내 — PHASE 4
+
+`models/companion.py`는 시간대 구간·휴식 제외 날짜 계산·불변 스냅샷을 정의한다. 휴식 구간을 합치고 요일별 주 수를 계산하므로 오래된 기록의 날짜를 하루씩 순회하지 않는다. `CompanionRepository`는 `rest_periods`, `companion_state`, `companion_messages`와 유효 집중 조회를 맡는다. 스키마 4는 focus_sessions.recorded를 기본 1로 추가해 기존 집중을 보존한다. 기록 off는 임시 복구만 저장하고 종료 시 세션을 제거하며, 통계/감정 조회는 recorded=1만 포함한다.
+
+`CompanionService`는 실제 완료·기준 이상 시간을 확인하고 첫 사용자·기록 off·요일/휴식 기간·집중/휴식·수면을 적용한다. `LocalDayGuard`는 monotonic 대비 120초 초과 불연속과 재실행 역행, 미래 유효 기록을 감지해 중립 상태/자동 안내 중지를 유지하고 명시적 확인을 기다린다. 닫힌 동안의 시계 전진은 정상 경과와 구분할 수 없다.
+
+`CompanionPresenter`는 선호 설정 사본으로 집중 중 크기/속도/표시를 적용한다. 실제 표시와 사용자의 표시 요청을 따로 보관해 자동 숨김 후 수동 숨김을 덮어쓰지 않는다. 캐릭터 찾기는 현재 정책 구간에서 직접 복구를 허용한다. MiniTimer의 정책 표시는 펫 표시와 분리되어 타이머만 모드를 지원한다. AnimationState는 기본 상태와 일회 반응의 우선순위를 분리한다.
+
+`WindowsAttention`은 [Microsoft SHQueryUserNotificationState](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shqueryusernotificationstate)와 [공식 열거형](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ne-shellapi-query_user_notification_state)의 2/3/4 상태만 사용한다. API는 알림 적합성 휴리스틱이므로 모든 테두리 없는 영상/게임을 감지하지 못한다. 기본 off이며 2초 주기 조회에 창 제목·프로세스 내용·키 입력·화면 픽셀을 사용하지 않는다. 실패 시 숨김을 강제하지 않고 수동 경로를 안내한다.
+
+`BriefingService`는 오늘 발생 항목·미완료·다가오는 일정·오늘 마감·공부 분류·이전 미완료를 실제 DB로 만든다. 자동 안내는 표시 전 날짜 처리 이력을 INSERT OR IGNORE로 확보한다. 조용한 상태에서는 같은 날만 기다리고, 실행 시 옵션은 시작 날짜에만 적용한다. 직접 보기도 오늘 처리 이력을 남기며 다시 열 수 있다. 카드에는 키보드 포커스를 강제로 주지 않는다. 한국(서울) 시간을 사용하고 자동 실행 등록이나 Windows 전체 알림 설정은 바꾸지 않는다.

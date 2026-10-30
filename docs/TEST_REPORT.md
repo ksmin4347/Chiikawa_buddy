@@ -1,10 +1,14 @@
-# PHASE 0·1·2·3·4 검증 기록 — 0.4.0
+# PHASE 0·1·2·3·4 검증 기록 — 0.4.1
 
 검증일: 2026-10-30, 한국 시간. Windows 11 build 26200, Python 3.12.14, PySide6 6.12.0, python-dateutil 2.9.0.post0, tzdata 2026.5, pytest 9.2.0, ruff 0.17.3, PyInstaller 6.22.3.
 
+## 0.4.1 감사
+
+신규 오류 재현/보호 검사 10개를 추가했습니다. 기존 138개는 통과했지만 추가 검사에서 오류 6건을 재현해 수정했습니다. [감사 보고서](AUDIT_REPORT_0.4.1.md)에 사례·실제 프로세스 강제 종료 복구·실제 입력 승인 시간 초과와 수동 한계를 기록했습니다.
+
 ## 실행한 자동 회귀
 
-**138개 통과.** 전용 임시 경로와 Qt offscreen 플랫폼을 사용했습니다. 실제 사용자 DB는 사용하지 않았습니다. `ruff check --no-cache .`와 `ruff format --check --no-cache .`도 통과했습니다.
+**148개 통과.** 전용 임시 경로와 Qt offscreen 플랫폼을 사용했습니다. 실제 사용자 DB는 사용하지 않았습니다. `ruff check --no-cache .`와 `ruff format --check --no-cache .`도 통과했습니다.
 
 - 기존 설정/DB 손상/상위 스키마 보호, 입력·좌표·에셋·프로세스 종료, 할 일/캘린더/분류/반복/알림 회귀 전체 유지.
 - 스키마 1 및 2에서 3으로 이전, 원본 backup API 백업과 기존 할 일·설정 유지, DDL 오류 롤백.
@@ -52,7 +56,7 @@
 
 ## 초기 EXE 빌드
 
-0.4.0 PyInstaller one-folder 빌드와 포함 파일 확인을 수행했습니다. 기본 모루 PNG 64개·아이콘·Qt Windows 플러그인·tzdata Asia/Seoul을 포함합니다. `assets/characters` 원본 자료·사용자 DB·로그·QA 자료는 번들에서 제외했습니다.
+0.4.1 PyInstaller one-folder 빌드와 포함 파일 확인을 수행했습니다. 기본 모루 PNG 64개·아이콘·Qt Windows 플러그인·tzdata Asia/Seoul을 포함합니다. `assets/characters` 원본 자료·사용자 DB·로그·QA 자료는 번들에서 제외했습니다.
 
 이전 EXE 시작은 이 PC의 Windows 앱 제어 정책으로 거부되었습니다. 정책을 변경하거나 우회하지 않았습니다. 이번 EXE의 실제 실행·깨끗한 PC 검증은 수행하지 않았습니다. 확인된 실행 경로는 `run_windows.bat`의 Python/PySide6 소스 실행입니다.
 

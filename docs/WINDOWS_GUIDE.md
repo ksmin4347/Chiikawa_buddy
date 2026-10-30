@@ -1,4 +1,4 @@
-# Windows에서 사용하기 — 0.4.0
+# Windows에서 사용하기 — 0.4.1
 
 ## 시작
 
@@ -75,6 +75,6 @@
 
 `%LOCALAPPDATA%\DesktopBuddy\buddy.db`에 저장합니다. 0.1.0~0.3.0 DB는 자동 백업 후 새 스키마로 이전하며 설정과 위치를 유지합니다. 이전 중 오류가 있어도 DB를 초기화하지 않습니다. 원본과 `buddy.<시각>.backup.db`를 보관하세요. 수동 백업·복원 버튼은 아직 없습니다.
 
-`dist\DesktopBuddy`는 초기 EXE 폴더입니다. 전체를 복사해야 하며 EXE만 옮기면 안 됩니다. 이 PC의 이전 EXE는 앱 제어 정책으로 차단되었고 0.4.0 EXE 실행 검증도 남아 있습니다. 지금은 확인된 `run_windows.bat` 소스 실행을 사용합니다.
+`dist\DesktopBuddy`는 초기 EXE 폴더입니다. 전체를 복사해야 하며 EXE만 옮기면 안 됩니다. 이 PC의 이전 EXE는 앱 제어 정책으로 차단되었고 0.4.1 EXE 실행 검증도 남아 있습니다. 지금은 확인된 `run_windows.bat` 소스 실행을 사용합니다.
 
 수동 확인 목록: [MANUAL_TESTS.md](MANUAL_TESTS.md). 다음 개발 단계는 별도 요청 후 오프라인 명령·채팅·제공 캐릭터 선택입니다.

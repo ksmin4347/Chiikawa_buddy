@@ -76,6 +76,8 @@ class AnimationState(QObject):
         super().__init__()
         self.clips = clips
         self.base_state = "idle"
+        self.base_priority = 0
+        self.priority = 0
         self.state = "idle"
         self.index = 0
 
@@ -87,17 +89,21 @@ class AnimationState(QObject):
     def frame(self) -> QPixmap:
         return self.clip.frames[self.index]
 
-    def play(self, state: str) -> None:
+    def play(self, state: str, priority: int = 50, force: bool = False) -> None:
+        if not force and not self.clip.loop and priority < self.priority:
+            return
+        self.priority = priority
         self.state = state if state in self.clips else "idle"
         self.index = 0
         self.state_changed.emit(self.state)
 
-    def set_base(self, state: str) -> None:
+    def set_base(self, state: str, priority: int = 0) -> None:
         old_base = self.base_state
         self.base_state = state if state in self.clips else "idle"
-        if self.state == old_base or self.clip.loop:
+        self.base_priority = priority
+        if self.state == old_base or self.clip.loop or priority > self.priority:
             if self.state != self.base_state:
-                self.play(self.base_state)
+                self.play(self.base_state, priority=priority, force=True)
 
     def advance(self) -> None:
         if self.index + 1 < len(self.clip.frames):
@@ -105,4 +111,4 @@ class AnimationState(QObject):
         elif self.clip.loop:
             self.index = 0
         else:
-            self.play(self.base_state)
+            self.play(self.base_state, priority=self.base_priority, force=True)

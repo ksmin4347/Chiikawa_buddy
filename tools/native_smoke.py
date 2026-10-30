@@ -19,7 +19,7 @@ from desktop_buddy.services.single_instance import SingleInstance
 app = QApplication([])
 app.setQuitOnLastWindowClosed(False)
 app.setStyle("Fusion")
-directory = ROOT / ".qa" / "native-smoke-phase3" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "native-smoke-phase4" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -110,7 +110,30 @@ def verify():
             )
         )
         assert controller.manager.grab().save(str(ROOT / ".qa" / "native-statistics.png"))
+        controller.manager.open_page(controller.manager.COMPANION_PAGE)
+        result["companion_page_visible"] = controller.manager.companion_page.isVisible()
+        controller.show_today_briefing()
+        result["manual_briefing_visible"] = controller.briefing_card.isVisible()
+        controller.briefing_card.open_planning()
+        result["briefing_opens_today"] = controller.manager.pages.currentIndex() == 1
+        controller.settings.update(focus_appearance="small")
         controller.manager.open_page(controller.manager.FOCUS_PAGE)
+        focus.start_button.click()
+        result["focus_size_is_temporary"] = (
+            controller.pet.width() == 128 and controller.settings.current.size == 208
+        )
+        focus.stop_button.click()
+        result["size_restored_after_focus"] = controller.pet.width() == 208
+        assert all(
+            result[key]
+            for key in (
+                "companion_page_visible",
+                "manual_briefing_visible",
+                "briefing_opens_today",
+                "focus_size_is_temporary",
+                "size_restored_after_focus",
+            )
+        )
         focus.start_button.click()
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
@@ -131,9 +154,11 @@ result["persisted_after_exit"] = reopened.load_settings().character_name == "테
 reopened.close()
 next_guard = SingleInstance(directory)
 result["lock_released_after_exit"] = next_guard.acquire()
+result["companion_timer_stopped"] = not controller.companion.timer.isActive()
+result["briefing_timer_stopped"] = not controller.briefing.timer.isActive()
 result["notification_timer_stopped"] = not controller.notifications.timer.isActive()
 next_guard.close()
-(ROOT / ".qa" / "native-smoke-phase3.json").write_text(
+(ROOT / ".qa" / "native-smoke-phase4.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
 )
 print(json.dumps(result, ensure_ascii=False))

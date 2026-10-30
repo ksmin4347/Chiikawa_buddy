@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from desktop_buddy.database.migrations import SCHEMA_VERSION
 from desktop_buddy.database.store import Store
 from desktop_buddy.models.planning import Task
 from desktop_buddy.services.focus_timer import FocusTimerService
@@ -212,14 +213,21 @@ def test_v2_migration_backs_up_and_preserves_plans(qapp, tmp_path):
     path = tmp_path / "buddy.db"
     store = Store(path)
     PlanningService(store).save(Task("이전 할 일", date(2026, 10, 28)))
-    for table in ("focus_segments", "focus_sessions", "timer_state"):
+    for table in (
+        "companion_messages",
+        "companion_state",
+        "rest_periods",
+        "focus_segments",
+        "focus_sessions",
+        "timer_state",
+    ):
         store.connection.execute(f"DROP TABLE {table}")
     store.connection.execute("PRAGMA user_version=2")
     store.connection.commit()
     store.close()
     reopened = Store(path)
     assert len(PlanningService(reopened).repository.records("task")) == 1
-    assert reopened.connection.execute("PRAGMA user_version").fetchone()[0] == 3
+    assert reopened.connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     backups = list(tmp_path.glob("*.backup.db"))
     assert len(backups) == 1
     old = sqlite3.connect(backups[0])

@@ -20,6 +20,10 @@ def controller(qapp, tmp_path):
     buddy = BuddyApplication(qapp, store, guard, tmp_path)
     clock = Clock()
     buddy.focus_timer.clock = clock
+    buddy.companion.clock = clock
+    buddy.companion.guard.clock = clock
+    buddy.companion.guard.acknowledge()
+    buddy.companion.poll()
     buddy.focus_timer.timer.stop()
     yield buddy, clock
     buddy.shutdown()
@@ -155,7 +159,7 @@ def test_timer_completion_respects_global_pause_and_quiet_hours(controller, monk
 
     buddy, clock = controller
     spoken = []
-    monkeypatch.setattr(buddy.pet, "speak", spoken.append)
+    monkeypatch.setattr(buddy.pet, "speak", lambda text, **kwargs: spoken.append(text))
     result = PhaseFinished("focus", 1, 60, "short_break")
     buddy.settings.update(notifications_paused=True)
     buddy._phase_finished(result)

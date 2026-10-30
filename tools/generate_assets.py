@@ -47,7 +47,7 @@ def draw(happy: bool, frame: int, state: str = "idle") -> QImage:
     p.drawEllipse(71, 143, 26, 14)
     p.drawEllipse(163, 143, 26, 14)
     p.setPen(QPen(QColor("#39594e"), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-    blink = not happy and frame == 6
+    blink = state == "sleep" or (not happy and frame == 6)
     if happy or blink:
         for x in (96, 160):
             eye = QPainterPath(QPointF(x - 7, 132))
@@ -64,7 +64,7 @@ def draw(happy: bool, frame: int, state: str = "idle") -> QImage:
     p.setBrush(Qt.BrushStyle.NoBrush)
     p.setPen(outline)
     smile = QPainterPath(QPointF(117, 145))
-    smile.quadTo(128, 157 if happy else 153, 139, 145)
+    smile.quadTo(128, 140 if state == "sad" else 157 if happy else 153, 139, 145)
     p.drawPath(smile)
     p.setPen(QPen(QColor("#557e51"), 5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
     p.drawLine(128, 65, 128, 45)
@@ -82,6 +82,21 @@ def draw(happy: bool, frame: int, state: str = "idle") -> QImage:
         for x, y in [(37, 76), (216, 67)]:
             p.drawLine(x - 5, y, x + 5, y)
             p.drawLine(x, y - 5, x, y + 5)
+    if state in ("sad", "worried"):
+        p.setPen(QPen(QColor("#39594e"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(88, 116, 103, 112)
+        p.drawLine(153, 112, 168, 116)
+        if state == "sad":
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor("#a6c5d1"))
+            p.drawEllipse(166, 140 + frame % 3, 7, 11)
+    elif state == "sleep":
+        p.setPen(QPen(QColor("#6c8492"), 3))
+        for x, y, size in ((209, 90, 8), (227, 70, 11)):
+            y -= frame % 4
+            p.drawLine(x, y, x + size, y)
+            p.drawLine(x + size, y, x, y + size)
+            p.drawLine(x, y + size, x + size, y + size)
     if state == "focus":
         p.setPen(outline)
         p.setBrush(QColor("#f8edd3"))
@@ -114,7 +129,7 @@ def main():
     app = QGuiApplication([])
     root = ROOT / "assets" / "default_character"
     states = {}
-    for name in ("idle", "happy", "focus", "break", "complete"):
+    for name in ("idle", "happy", "focus", "break", "complete", "worried", "sad", "sleep"):
         directory = root / name
         directory.mkdir(parents=True, exist_ok=True)
         frames = []
@@ -123,8 +138,14 @@ def main():
             assert draw(name in ("happy", "complete"), index, name).save(str(root / relative))
             frames.append(relative)
         states[name] = {
-            "fps": 3 if name in ("idle", "focus", "break") else 8,
-            "loop": name in ("idle", "focus", "break"),
+            "fps": 1
+            if name == "sleep"
+            else 2
+            if name in ("sad", "worried")
+            else 3
+            if name in ("idle", "focus", "break")
+            else 8,
+            "loop": name not in ("happy", "complete"),
             "frames": frames,
         }
     (root / "manifest.json").write_text(
@@ -143,7 +164,7 @@ def main():
     icon = draw(False, 0)
     icon.save(str(ROOT / "assets" / "icons" / "buddy.png"))
     icon.save(str(ROOT / "assets" / "icons" / "buddy.ico"))
-    print("Created 40 transparent PNG frames and app icons.")
+    print("Created 64 transparent PNG frames and app icons.")
     del app
 
 

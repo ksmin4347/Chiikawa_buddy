@@ -25,6 +25,7 @@ class PetWindow(QWidget):
         flags = Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
         super().__init__(None, flags)
         self.allow_close = False
+        self.speech_guard = lambda **kwargs: True
         self.setWindowTitle(f"{APP_NAME} · 캐릭터")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
@@ -33,6 +34,8 @@ class PetWindow(QWidget):
         self.animation = animation
         self.settings = settings
         self.bubble = SpeechBubble()
+        self.bubble_explicit = False
+        self.bubble_essential = False
         self._press: QPoint | None = None
         self._origin = QPoint()
         self._dragging = False
@@ -85,7 +88,7 @@ class PetWindow(QWidget):
         if not settings.bubbles_enabled:
             self.bubble.hide()
         if settings.reduce_motion:
-            self.animation.play(self.animation.base_state)
+            self.animation.play(self.animation.base_state, force=True)
         self._update_timer()
         self.update()
         self.geometry_changed.emit()
@@ -114,11 +117,16 @@ class PetWindow(QWidget):
     def react(self) -> None:
         self.single_clicked.emit()
         if not self.settings.reduce_motion:
-            self.animation.play("happy")
-        self.speak(f"나는 {self.settings.character_name}! 오늘도 편하게 함께해요.")
+            self.animation.play("happy", priority=100)
+        self.speak(f"나는 {self.settings.character_name}! 오늘도 편하게 함께해요.", explicit=True)
 
-    def speak(self, text: str) -> None:
-        if self.settings.bubbles_enabled and self.isVisible():
+    def speak(self, text: str, *, explicit: bool = False, essential: bool = False) -> None:
+        if (
+            self.settings.bubbles_enabled
+            and self.isVisible()
+            and self.speech_guard(explicit=explicit, essential=essential)
+        ):
+            self.bubble_explicit, self.bubble_essential = explicit, essential
             self.bubble.speak(text, self.geometry())
 
     def paintEvent(self, _event) -> None:

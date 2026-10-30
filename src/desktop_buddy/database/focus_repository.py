@@ -19,12 +19,25 @@ class FocusRepository:
             raise LookupError("집중 기록을 찾을 수 없어요.")
         return self._dict(cursor, row)
 
-    def create(self, kind, seconds, now, category, task_id, task_key, task_title) -> int:
+    def create(
+        self, kind, seconds, now, category, task_id, task_key, task_title, recorded=True
+    ) -> int:
         category_id, name, color = category
         cursor = self.connection.execute(
             "INSERT INTO focus_sessions(kind,planned_seconds,started_at,category_id,category_name,"
-            "category_color,task_id,task_key,task_title) VALUES (?,?,?,?,?,?,?,?,?)",
-            (kind, seconds, stamp(now), category_id, name, color, task_id, task_key, task_title),
+            "category_color,task_id,task_key,task_title,recorded) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (
+                kind,
+                seconds,
+                stamp(now),
+                category_id,
+                name,
+                color,
+                task_id,
+                task_key,
+                task_title,
+                recorded,
+            ),
         )
         return cursor.lastrowid
 
@@ -84,14 +97,15 @@ class FocusRepository:
             "SELECT g.*,s.category_id,s.category_name,s.category_color,"
             "s.task_id,s.task_key,s.task_title "
             "FROM focus_segments g JOIN focus_sessions s ON s.id=g.session_id "
-            "WHERE s.kind='focus' AND g.ended_at>? AND g.started_at<? ORDER BY g.started_at,g.id",
+            "WHERE s.kind='focus' AND s.recorded=1 AND g.ended_at>? AND g.started_at<? "
+            "ORDER BY g.started_at,g.id",
             (stamp(lower), stamp(upper)),
         )
         return [self._dict(cursor, row) for row in cursor]
 
     def recent(self, lower: datetime, upper: datetime, limit: int = 100):
         cursor = self.connection.execute(
-            "SELECT * FROM focus_sessions WHERE kind='focus' AND started_at<? "
+            "SELECT * FROM focus_sessions WHERE kind='focus' AND recorded=1 AND started_at<? "
             "AND (ended_at IS NULL OR ended_at>=?) ORDER BY started_at DESC,id DESC LIMIT ?",
             (stamp(upper), stamp(lower), limit),
         )
@@ -100,21 +114,21 @@ class FocusRepository:
     def completed_count(self, lower: datetime, upper: datetime):
         return self.connection.execute(
             "SELECT COUNT(*) FROM focus_sessions WHERE kind='focus' "
-            "AND completed=1 AND ended_at>=? AND ended_at<?",
+            "AND recorded=1 AND completed=1 AND ended_at>=? AND ended_at<?",
             (stamp(lower), stamp(upper)),
         ).fetchone()[0]
 
     def completed_average(self, lower: datetime, upper: datetime) -> float:
         return self.connection.execute(
             "SELECT COALESCE(AVG(active_seconds),0) FROM focus_sessions WHERE kind='focus' "
-            "AND completed=1 AND ended_at>=? AND ended_at<?",
+            "AND recorded=1 AND completed=1 AND ended_at>=? AND ended_at<?",
             (stamp(lower), stamp(upper)),
         ).fetchone()[0]
 
     def all_total(self):
         return self.connection.execute(
             "SELECT COALESCE(SUM(g.elapsed_seconds),0) FROM focus_segments g "
-            "JOIN focus_sessions s ON s.id=g.session_id WHERE s.kind='focus'"
+            "JOIN focus_sessions s ON s.id=g.session_id WHERE s.kind='focus' AND s.recorded=1"
         ).fetchone()[0]
 
     def delete(self, item_id):

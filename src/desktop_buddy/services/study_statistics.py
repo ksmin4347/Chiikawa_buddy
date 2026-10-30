@@ -84,7 +84,7 @@ class StudyStatistics(QObject):
         row = self.store.connection.execute(
             "SELECT MAX(g.ended_at) FROM focus_segments g "
             "JOIN focus_sessions s ON s.id=g.session_id "
-            "WHERE s.kind='focus' AND g.elapsed_seconds>0"
+            "WHERE s.kind='focus' AND s.recorded=1 AND g.elapsed_seconds>0"
         ).fetchone()[0]
         return datetime.fromisoformat(row).astimezone(self.zone).date() if row else None
 

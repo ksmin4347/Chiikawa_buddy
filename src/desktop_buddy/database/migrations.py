@@ -1,6 +1,6 @@
 import sqlite3
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def migrate(connection: sqlite3.Connection, old_version: int) -> None:
@@ -85,4 +85,16 @@ def migrate(connection: sqlite3.Connection, old_version: int) -> None:
         ]
         for statement in statements:
             connection.execute(statement)
+    if old_version < 4:
+        connection.execute(
+            "ALTER TABLE focus_sessions ADD COLUMN recorded INTEGER NOT NULL DEFAULT 1"
+        )
+        connection.execute("""CREATE TABLE rest_periods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL CHECK(end_date >= start_date))""")
+        connection.execute("""CREATE TABLE companion_state (
+            singleton INTEGER PRIMARY KEY CHECK(singleton=1), last_seen_at TEXT NOT NULL,
+            clock_warning INTEGER NOT NULL DEFAULT 0)""")
+        connection.execute("""CREATE TABLE companion_messages (
+            kind TEXT NOT NULL, local_date TEXT NOT NULL, PRIMARY KEY(kind,local_date))""")
     connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

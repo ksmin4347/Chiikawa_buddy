@@ -29,6 +29,8 @@ class MiniTimer(QLabel):
         )
         self.pet, self.timer, self.settings = pet, timer, settings
         self.hovered = False
+        self.force_visible = False
+        self.suppressed = False
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setWindowTitle("Desktop Buddy · 작은 타이머")
@@ -42,6 +44,10 @@ class MiniTimer(QLabel):
         pet.geometry_changed.connect(self.refresh)
         pet.visibility_changed.connect(self.refresh)
         pet.hover_changed.connect(self.set_hover)
+        self.refresh()
+
+    def set_policy(self, force_visible: bool, suppressed: bool) -> None:
+        self.force_visible, self.suppressed = force_visible, suppressed
         self.refresh()
 
     def set_hover(self, hovered: bool) -> None:
@@ -61,6 +67,7 @@ class MiniTimer(QLabel):
             )
             or (mode == "hover" and self.hovered)
         )
+        visible = (visible or self.force_visible) and not self.suppressed
         if not visible:
             self.hide()
             return

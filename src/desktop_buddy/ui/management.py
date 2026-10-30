@@ -25,6 +25,7 @@ from desktop_buddy.core.metadata import APP_NAME, VERSION
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.calendar_page import CalendarPage
 from desktop_buddy.ui.common import button, card, label
+from desktop_buddy.ui.companion_page import CompanionPage
 from desktop_buddy.ui.focus_page import FocusPage
 from desktop_buddy.ui.planning_actions import PlanningActions
 from desktop_buddy.ui.statistics_page import StatisticsPage
@@ -34,7 +35,9 @@ from desktop_buddy.ui.today_page import TodayPage
 class ManagementWindow(QMainWindow):
     FOCUS_PAGE = 3
     STATISTICS_PAGE = 4
-    SETTINGS_PAGE = 5
+    COMPANION_PAGE = 5
+    SETTINGS_PAGE = 6
+    briefing_requested = Signal()
     greet_requested = Signal()
     find_requested = Signal()
     toggle_pet_requested = Signal()
@@ -42,7 +45,9 @@ class ManagementWindow(QMainWindow):
     reset_requested = Signal()
     closing = Signal()
 
-    def __init__(self, service: SettingsService, preview, data_dir, planning, timer, statistics):
+    def __init__(
+        self, service: SettingsService, preview, data_dir, planning, timer, statistics, companion
+    ):
         super().__init__()
         self.service = service
         self.planning = planning
@@ -78,7 +83,7 @@ class ManagementWindow(QMainWindow):
         self.pages = QStackedWidget()
         self.nav_group = QButtonGroup(self)
         for index, title in enumerate(
-            ["홈", "오늘의 계획", "캘린더", "집중 타이머", "공부 통계", "설정"]
+            ["홈", "오늘의 계획", "캘린더", "집중 타이머", "공부 통계", "생활·브리핑", "설정"]
         ):
             nav = QPushButton(title)
             nav.setCheckable(True)
@@ -103,6 +108,9 @@ class ManagementWindow(QMainWindow):
         self.pages.addWidget(self.focus_page)
         self.statistics_page = StatisticsPage(statistics, planning)
         self.pages.addWidget(self.statistics_page)
+        self.companion_page = CompanionPage(companion, service)
+        self.companion_page.briefing_requested.connect(self.briefing_requested.emit)
+        self.pages.addWidget(self.companion_page)
         self._make_settings(data_dir)
         planning.changed.connect(self.refresh_planning)
         self.refresh_planning()
@@ -166,6 +174,7 @@ class ManagementWindow(QMainWindow):
         shortcuts.addWidget(button("집중 시작", lambda: self.open_page(self.FOCUS_PAGE)))
         content.addLayout(shortcuts)
         body.addWidget(frame)
+        body.addWidget(button("오늘 브리핑 보기", self.briefing_requested.emit))
         frame, content = card("이렇게 함께해요")
         for title, detail in [
             ("한 번 클릭", "짧은 표정 변화와 말풍선으로 인사해요."),
@@ -389,6 +398,8 @@ class ManagementWindow(QMainWindow):
         elif index == self.FOCUS_PAGE:
             self.focus_page.refresh_counts()
             self.focus_page.refresh_links()
+        elif index == self.COMPANION_PAGE:
+            self.companion_page.refresh(self.companion_page.companion.snapshot)
         self.pages.setCurrentIndex(index)
         self.nav_group.button(index).setChecked(True)
         self.showNormal()

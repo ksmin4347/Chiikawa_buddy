@@ -28,6 +28,22 @@ class Settings:
     timer_notifications: bool = True
     focus_quiet: bool = True
     mini_timer_mode: str = "focus"
+    record_focus: bool = True
+    emotion_enabled: bool = True
+    emotion_gap_days: int = 3
+    valid_focus_minutes: int = 15
+    emotion_message_days: int = 3
+    rest_weekdays: tuple[int, ...] = (5, 6)
+    sleep_enabled: bool = False
+    sleep_start: str = "23:00"
+    sleep_end: str = "07:00"
+    focus_appearance: str = "normal"
+    fullscreen_hide: bool = False
+    timer_alert_during_quiet: bool = False
+    briefing_enabled: bool = False
+    briefing_time: str = "09:00"
+    briefing_on_start: bool = True
+    briefing_detailed: bool = False
     x: int | None = None
     y: int | None = None
 
@@ -37,7 +53,30 @@ class Settings:
         clean = {}
         for field in fields(cls):
             value = values.get(field.name, getattr(defaults, field.name))
-            if field.name in {"x", "y"}:
+            if field.name in {"emotion_gap_days", "valid_focus_minutes", "emotion_message_days"}:
+                lower, upper = {
+                    "emotion_gap_days": (2, 30),
+                    "valid_focus_minutes": (1, 1440),
+                    "emotion_message_days": (0, 30),
+                }[field.name]
+                clean[field.name] = (
+                    max(lower, min(upper, value))
+                    if type(value) is int
+                    else getattr(defaults, field.name)
+                )
+            elif field.name == "rest_weekdays":
+                clean[field.name] = (
+                    tuple(sorted({day for day in value if type(day) is int and 0 <= day <= 6}))
+                    if isinstance(value, (tuple, list))
+                    else defaults.rest_weekdays
+                )
+            elif field.name == "focus_appearance":
+                clean[field.name] = (
+                    value
+                    if value in ("normal", "calm", "small", "timer_only", "hidden")
+                    else "normal"
+                )
+            elif field.name in {"x", "y"}:
                 clean[field.name] = value if type(value) is int else None
             elif field.name in {"size", "animation_speed"}:
                 lower, upper = (96, 320) if field.name == "size" else (50, 150)
@@ -68,7 +107,13 @@ class Settings:
                 )
             elif field.name == "week_start":
                 clean[field.name] = value if type(value) is int and value in (0, 6) else 6
-            elif field.name in {"quiet_start", "quiet_end"}:
+            elif field.name in {
+                "quiet_start",
+                "quiet_end",
+                "sleep_start",
+                "sleep_end",
+                "briefing_time",
+            }:
                 clean[field.name] = (
                     value
                     if isinstance(value, str) and re.fullmatch(r"(?:[01]\d|2[0-3]):[0-5]\d", value)

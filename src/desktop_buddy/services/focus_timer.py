@@ -37,6 +37,7 @@ class FocusTimerService(QObject):
         self._checkpoint_mono = self._last_mono
         self.status, self.phase, self.next_phase = "idle", "focus", None
         self.session_id = None
+        self.recorded = True
         self.elapsed, self.paused = 0.0, 0.0
         self.completed_rounds = 0
         self.reason = ""
@@ -117,9 +118,15 @@ class FocusTimerService(QObject):
         with self.store.connection:
             for row in open_rows:
                 if row is not active:
-                    self.repository.finish(row["id"], self.clock.now(), False, "orphaned_recovery")
+                    if row["recorded"]:
+                        self.repository.finish(
+                            row["id"], self.clock.now(), False, "orphaned_recovery"
+                        )
+                    else:
+                        self.repository.delete(row["id"])
             if active:
                 self.session_id = active["id"]
+                self.recorded = bool(active["recorded"])
                 self.phase = active["kind"]
                 self.planned = active["planned_seconds"]
                 self.elapsed, self.paused = active["active_seconds"], active["paused_seconds"]
@@ -210,18 +217,22 @@ class FocusTimerService(QObject):
             self.reason,
             self.task_title,
             self.category_name,
+            self.recorded,
         )
         try:
             with self.store.connection:
+                recorded = self.settings.current.record_focus if kind == "focus" else True
                 item_id = self.repository.create(
                     kind,
                     seconds,
                     now,
                     category,
-                    task_id if kind == "focus" else None,
-                    task_key if kind == "focus" else None,
-                    title if kind == "focus" else "",
+                    task_id if kind == "focus" and recorded else None,
+                    task_key if kind == "focus" and recorded else None,
+                    title if kind == "focus" and recorded else "",
+                    recorded=recorded,
                 )
+                self.recorded = recorded
                 self.status, self.phase, self.planned, self.session_id = (
                     "running",
                     kind,
@@ -244,6 +255,7 @@ class FocusTimerService(QObject):
                 self.reason,
                 self.task_title,
                 self.category_name,
+                self.recorded,
             ) = old
             raise
         self._segment = None
@@ -310,7 +322,12 @@ class FocusTimerService(QObject):
         with self.store.connection:
             if self.session_id is not None:
                 self.repository.progress(self.session_id, self.elapsed, self.paused)
-                if self.phase == "focus" and self._segment and self._segment["seconds"] > 0:
+                if (
+                    self.phase == "focus"
+                    and self.recorded
+                    and self._segment
+                    and self._segment["seconds"] > 0
+                ):
                     value = self._segment
                     segment_id = self.repository.segment(
                         value["id"], self.session_id, value["start"], value["end"], value["seconds"]
@@ -388,7 +405,10 @@ class FocusTimerService(QObject):
         try:
             with self.store.connection:
                 self._persist()
-                self.repository.finish(item_id, self.clock.now(), completed, reason)
+                if self.recorded:
+                    self.repository.finish(item_id, self.clock.now(), completed, reason)
+                else:
+                    self.repository.delete(item_id)
                 self.completed_rounds = rounds
                 self.status = "ready" if completed else "idle"
                 self.next_phase = next_kind if completed else None

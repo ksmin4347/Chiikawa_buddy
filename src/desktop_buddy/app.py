@@ -7,12 +7,16 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from desktop_buddy.characters.animation import AnimationState, load_clips
 from desktop_buddy.core.metadata import APP_NAME
 from desktop_buddy.core.paths import asset_directory
+from desktop_buddy.services.briefing_service import BriefingService
+from desktop_buddy.services.companion_service import CompanionService
 from desktop_buddy.services.focus_timer import FocusTimerService
 from desktop_buddy.services.notification_service import NotificationService
 from desktop_buddy.services.planning_service import PlanningService
 from desktop_buddy.services.power_events import PowerEventFilter
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.services.study_statistics import StudyStatistics
+from desktop_buddy.ui.briefing_card import BriefingCard
+from desktop_buddy.ui.companion_presenter import CompanionPresenter
 from desktop_buddy.ui.management import ManagementWindow
 from desktop_buddy.ui.mini_timer import MiniTimer
 from desktop_buddy.ui.pet import PetWindow
@@ -30,6 +34,8 @@ class BuddyApplication:
         self.settings = SettingsService(store)
         self.planning = PlanningService(store)
         self.focus_timer = FocusTimerService(store, self.settings, self.planning)
+        self.companion = CompanionService(store, self.settings, self.focus_timer)
+        self.briefing = BriefingService(self.planning, self.settings, self.companion)
         self.statistics = StudyStatistics(store, self.planning, self.focus_timer)
         self.power_filter = PowerEventFilter(self.focus_timer)
         app.installNativeEventFilter(self.power_filter)
@@ -44,9 +50,15 @@ class BuddyApplication:
             self.planning,
             self.focus_timer,
             self.statistics,
+            self.companion,
         )
         self.mini_timer = MiniTimer(self.pet, self.focus_timer, self.settings)
-        self.focus_timer.updated.connect(self._timer_updated)
+        self.briefing_card = BriefingCard()
+        self.briefing_card.planning_requested.connect(lambda: self.manager.open_page(1))
+        self._briefing_manual = False
+        self.briefing.ready.connect(self._show_briefing)
+        self.companion.changed.connect(self._routine_changed)
+        self.manager.briefing_requested.connect(self.show_today_briefing)
         self.focus_timer.phase_finished.connect(self._phase_finished)
         self.focus_timer.error.connect(
             lambda text: self.manager.statusBar().showMessage(text, 15000)
@@ -94,12 +106,24 @@ class BuddyApplication:
             self._screen_added(screen)
         self.planning.task_completed.connect(self._task_completed)
         self.notifications = NotificationService(
-            self.planning, self.settings, is_focusing=lambda: self.focus_timer.snapshot.focusing
+            self.planning,
+            self.settings,
+            is_focusing=lambda: self.focus_timer.snapshot.focusing,
+            is_quiet=lambda: self.companion.quiet(),
         )
         self.notifications.due.connect(self._notify)
         self.notifications.failed.connect(
             lambda text: self.manager.statusBar().showMessage(text, 15000)
         )
+        self.presentation = CompanionPresenter(
+            self.pet, self.mini_timer, self.settings, self.focus_timer, self.companion
+        )
+        self.companion.can_notify = lambda: self.pet.isVisible() and not self._closed
+        self.briefing.can_notify = lambda: self.presentation.requested_visible and not self._closed
+        self.companion.failed.connect(
+            lambda text: self.manager.statusBar().showMessage(text, 15000)
+        )
+        self.briefing.failed.connect(lambda text: self.manager.statusBar().showMessage(text, 15000))
         app.aboutToQuit.connect(self.shutdown)
         self._settings_changed(self.settings.current)
         current = self.settings.current
@@ -112,52 +136,51 @@ class BuddyApplication:
         if QSystemTrayIcon.isSystemTrayAvailable():
             self.tray.show()
         if current.show_on_start or not self.tray.isVisible():
-            self.pet.show()
+            self.presentation.show_initial(True)
             QTimer.singleShot(
                 700, lambda: self.pet.speak("반가워요! 나를 더블클릭하면 관리창이 열려요.")
             )
 
         self.notifications.start()
-        self._timer_updated(self.focus_timer.snapshot)
+        self.companion.start()
         self.focus_timer.start_clock()
+        self.briefing.start()
 
-    def _timer_updated(self, snapshot) -> None:
-        base = (
-            ("focus" if snapshot.phase == "focus" else "break")
-            if snapshot.status == "running"
-            else "idle"
+    def _routine_changed(self, snapshot) -> None:
+        if snapshot.fullscreen or (snapshot.quiet and not self._briefing_manual):
+            self.briefing_card.hide()
+
+    def _show_briefing(self, briefing, manual: bool = False) -> None:
+        self._briefing_manual = manual
+        self.briefing_card.present(
+            briefing, self.settings.current.briefing_detailed, self.pet.geometry()
         )
-        self.animation.set_base(base)
-        if self.settings.current.reduce_motion and self.animation.state != base:
-            self.animation.play(self.animation.base_state)
+
+    def show_today_briefing(self) -> None:
+        try:
+            self._show_briefing(self.briefing.manual(), manual=True)
+        except Exception:
+            self.manager.statusBar().showMessage("브리핑을 불러오지 못했어요.", 15000)
 
     def _phase_finished(self, result) -> None:
         if not self.settings.current.reduce_motion:
-            self.animation.play("complete")
+            self.animation.play("complete", priority=80)
         text = (
             "집중 시간이 끝났어요. 잠깐 쉬어도 좋아요."
             if result.phase == "focus"
             else "휴식이 끝났어요. 준비되면 다시 시작해요."
         )
         self.manager.statusBar().showMessage(text, 15000)
-        if (
-            self.settings.current.timer_notifications
-            and not self.settings.current.notifications_paused
-            and not self.notifications.quiet_hours(self.focus_timer.clock.now())
-        ):
-            self.pet.speak(text)
-            if (
-                not self.settings.current.notifications_paused
-                and self.tray.isVisible()
-                and QSystemTrayIcon.supportsMessages()
-            ):
+        if self.settings.current.timer_notifications and not self.companion.quiet(essential=True):
+            self.pet.speak(text, essential=True)
+            if self.tray.isVisible() and QSystemTrayIcon.supportsMessages():
                 self.tray.showMessage(
                     "타이머 완료", text, QSystemTrayIcon.MessageIcon.Information, 8000
                 )
 
     def _task_completed(self) -> None:
         if not self.settings.current.reduce_motion:
-            self.animation.play("happy")
+            self.animation.play("happy", priority=80)
         self.pet.speak("하나 끝냈네요. 잘했어요! 잠깐 숨을 돌려도 좋아요.")
 
     def _notify(self, reminders) -> None:
@@ -186,13 +209,26 @@ class BuddyApplication:
         if settings.theme != self._theme:
             self._theme = settings.theme
             apply_theme(self.app, settings.theme)
-        self.pet.apply_settings(settings)
+        if hasattr(self, "presentation"):
+            self.presentation.refresh()
         if self._position_ready:
             self.pet.ensure_visible_position()
 
     def _visibility_changed(self, visible: bool) -> None:
         self.manager.set_pet_visible(visible)
         self.show_action.setText("캐릭터 숨기기" if visible else "캐릭터 다시 표시")
+        if not visible and self._position_ready and not self._closed:
+            QTimer.singleShot(0, self._ensure_recovery)
+
+    def _ensure_recovery(self) -> None:
+        if (
+            not self._closed
+            and not self.tray.isVisible()
+            and not self.pet.isVisible()
+            and not self.manager.isVisible()
+            and not self.companion.snapshot.fullscreen
+        ):
+            self.manager.open_page()
 
     def _tray_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
@@ -218,12 +254,10 @@ class BuddyApplication:
         self.manager.open_page()
 
     def find_pet(self) -> None:
-        self.pet.ensure_visible_position()
-        self.pet.show()
-        self.pet.raise_()
+        self.presentation.find()
 
     def hide_pet(self) -> None:
-        self.pet.hide()
+        self.presentation.hide()
         if not self.tray.isVisible():
             self.manager.open_page()
 
@@ -260,6 +294,9 @@ class BuddyApplication:
             return
         self._closed = True
         self.notifications.stop()
+        self.companion.stop()
+        self.briefing.stop()
+        self.briefing_card.hide()
         self._tray_click.stop()
         self.pet._click_timer.stop()
         self.pet.animation_timer.stop()

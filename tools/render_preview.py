@@ -3,6 +3,7 @@
 # ruff: noqa: E402 -- Configure offscreen Qt and source path before importing GUI modules.
 import os
 import sys
+import time as monotonic_time
 import uuid
 from datetime import datetime, time, timedelta
 from pathlib import Path
@@ -37,7 +38,7 @@ for font_file in ["malgun.ttf", "malgunbd.ttf"]:
 app.setFont(QFont("Malgun Gothic", 10))
 app.setStyle("Fusion")
 app.setQuitOnLastWindowClosed(False)
-directory = ROOT / ".qa" / "preview-data-phase3" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "preview-data-phase4" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -84,6 +85,26 @@ if not planning.repository.records("task") and not planning.repository.records("
         )
     )
 controller = BuddyApplication(app, store, guard, Path("%LOCALAPPDATA%") / "DesktopBuddy")
+
+
+class PreviewClock:
+    def __init__(self):
+        self.anchor = monotonic_time.monotonic()
+        self.wall = datetime.combine(day, time(12), planning.zone)
+
+    def monotonic(self):
+        return monotonic_time.monotonic()
+
+    def now(self):
+        return self.wall + timedelta(seconds=self.monotonic() - self.anchor)
+
+
+preview_clock = PreviewClock()
+controller.focus_timer.clock = preview_clock
+controller.companion.clock = preview_clock
+controller.companion.guard.clock = preview_clock
+controller.companion.guard.acknowledge()
+controller.companion.poll()
 controller.settings.update(theme="light")
 repository = controller.focus_timer.repository
 if not store.connection.execute("SELECT 1 FROM focus_sessions LIMIT 1").fetchone():
@@ -136,6 +157,24 @@ controller.manager.statistics_page.verticalScrollBar().setValue(
 settle()
 assert controller.manager.grab().save(str(output / "statistics-records.png"))
 controller.manager.statistics_page.verticalScrollBar().setValue(0)
+controller.manager.open_page(controller.manager.COMPANION_PAGE)
+settle()
+assert controller.manager.grab().save(str(output / "companion.png"))
+controller.manager.companion_page.verticalScrollBar().setValue(
+    controller.manager.companion_page.verticalScrollBar().maximum() // 2
+)
+settle()
+assert controller.manager.grab().save(str(output / "companion-rest.png"))
+controller.manager.companion_page.verticalScrollBar().setValue(
+    controller.manager.companion_page.verticalScrollBar().maximum()
+)
+settle()
+assert controller.manager.grab().save(str(output / "companion-settings.png"))
+controller.settings.update(briefing_detailed=True)
+controller.show_today_briefing()
+settle()
+assert controller.briefing_card.grab().save(str(output / "briefing.png"))
+controller.briefing_card.hide()
 controller.manager.open_page(controller.manager.SETTINGS_PAGE)
 controller.manager.resize(960, 980)
 settle()
@@ -152,5 +191,9 @@ assert controller.manager.grab().save(str(output / "calendar-dark.png"))
 controller.manager.open_page(controller.manager.STATISTICS_PAGE)
 settle()
 assert controller.manager.grab().save(str(output / "statistics-dark.png"))
+controller.manager.open_page(controller.manager.COMPANION_PAGE)
+controller.manager.companion_page.verticalScrollBar().setValue(0)
+settle()
+assert controller.manager.grab().save(str(output / "companion-dark.png"))
 controller.shutdown()
 print("Rendered home, planning, calendar views, settings, and dark views from QA fixtures.")

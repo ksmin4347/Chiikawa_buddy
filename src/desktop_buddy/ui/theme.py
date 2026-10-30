@@ -37,6 +37,7 @@ def apply_theme(app: QApplication, theme: str) -> None:
         QFrame#hero {{ background: {hero}; border: 0; border-radius: 20px; }}
         QLabel {{ background: transparent; }}
         QLabel[kind='title'] {{ font-size: 28px; font-weight: 700; }}
+        QLabel[kind='countdown'] {{ font-size: 64px; font-weight: 700; }}
         QLabel[kind='heading'] {{ font-size: 18px; font-weight: 700; }}
         QLabel[kind='muted'] {{ color: {muted}; font-size: 13px; }}
         QLabel[kind='eyebrow'] {{ color: {accent}; font-size: 12px; font-weight: 700; }}
@@ -45,6 +46,9 @@ def apply_theme(app: QApplication, theme: str) -> None:
         QPushButton:hover {{ background: {soft}; }}
         QPushButton:focus {{ border: 2px solid {accent}; }}
         QPushButton[primary='true'] {{ background: #315f49; color: white; border: 0; }}
+        QPushButton:disabled, QPushButton[primary='true']:disabled {{
+            background: {side}; color: {muted}; border: 1px solid {line}; }}
+        QSpinBox:disabled, QComboBox:disabled, QDateEdit:disabled {{ color: {muted}; }}
         QPushButton[nav='true'] {{ text-align: left; border: 0; background: transparent;
             padding: 12px 16px; }}
         QPushButton[nav='true']:checked {{ background: {soft}; }}

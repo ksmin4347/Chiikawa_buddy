@@ -3,6 +3,7 @@
 # ruff: noqa: E402 -- Set source path before project imports.
 import json
 import sys
+import uuid
 from datetime import timedelta
 from pathlib import Path
 
@@ -18,7 +19,7 @@ from desktop_buddy.services.single_instance import SingleInstance
 app = QApplication([])
 app.setQuitOnLastWindowClosed(False)
 app.setStyle("Fusion")
-directory = ROOT / ".qa" / "native-smoke-phase2"
+directory = ROOT / ".qa" / "native-smoke-phase3" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -80,6 +81,37 @@ def verify():
         calendar.mode_combo.setCurrentIndex(calendar.mode_combo.findData("day"))
         result["daily_view"] = len(calendar.timeline.days) == 1
         assert result["weekly_view"] and result["daily_view"]
+        controller.manager.open_page(controller.manager.FOCUS_PAGE)
+        focus = controller.manager.focus_page
+        focus.kind.setCurrentIndex(0)
+        focus.start_button.click()
+        result["focus_started_from_ui"] = controller.focus_timer.status == "running"
+        result["focus_animation"] = controller.animation.base_state == "focus"
+        result["mini_timer_visible"] = controller.mini_timer.isVisible()
+        focus.pause_button.click()
+        result["focus_paused_from_ui"] = controller.focus_timer.status == "paused"
+        focus.resume_button.click()
+        result["focus_resumed_from_ui"] = controller.focus_timer.status == "running"
+        focus.stop_button.click()
+        result["focus_stopped_from_ui"] = controller.focus_timer.status == "idle"
+        controller.manager.open_page(controller.manager.STATISTICS_PAGE)
+        app.processEvents()
+        result["focus_history_visible"] = controller.manager.statistics_page.records.rowCount() > 0
+        assert all(
+            result[key]
+            for key in (
+                "focus_started_from_ui",
+                "focus_animation",
+                "mini_timer_visible",
+                "focus_paused_from_ui",
+                "focus_resumed_from_ui",
+                "focus_stopped_from_ui",
+                "focus_history_visible",
+            )
+        )
+        assert controller.manager.grab().save(str(ROOT / ".qa" / "native-statistics.png"))
+        controller.manager.open_page(controller.manager.FOCUS_PAGE)
+        focus.start_button.click()
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
         result["error"] = repr(error)
@@ -90,13 +122,18 @@ QTimer.singleShot(500, verify)
 QTimer.singleShot(10000, lambda: app.exit(2))
 code = app.exec()
 reopened = Store(directory / "buddy.db")
+result["unfinished_focus_checkpoint"] = (
+    reopened.connection.execute("SELECT payload FROM timer_state").fetchone()[0].find('"paused"')
+    >= 0
+)
+result["focus_timer_stopped"] = not controller.focus_timer.timer.isActive()
 result["persisted_after_exit"] = reopened.load_settings().character_name == "테스트 친구"
 reopened.close()
 next_guard = SingleInstance(directory)
 result["lock_released_after_exit"] = next_guard.acquire()
 result["notification_timer_stopped"] = not controller.notifications.timer.isActive()
 next_guard.close()
-(ROOT / ".qa" / "native-smoke-phase2.json").write_text(
+(ROOT / ".qa" / "native-smoke-phase3.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
 )
 print(json.dumps(result, ensure_ascii=False))

@@ -30,6 +30,48 @@
         "happy/frame_007.png",
         "happy/frame_008.png"
       ]
+    },
+    "focus": {
+      "fps": 3,
+      "loop": true,
+      "frames": [
+        "focus/frame_001.png",
+        "focus/frame_002.png",
+        "focus/frame_003.png",
+        "focus/frame_004.png",
+        "focus/frame_005.png",
+        "focus/frame_006.png",
+        "focus/frame_007.png",
+        "focus/frame_008.png"
+      ]
+    },
+    "break": {
+      "fps": 3,
+      "loop": true,
+      "frames": [
+        "break/frame_001.png",
+        "break/frame_002.png",
+        "break/frame_003.png",
+        "break/frame_004.png",
+        "break/frame_005.png",
+        "break/frame_006.png",
+        "break/frame_007.png",
+        "break/frame_008.png"
+      ]
+    },
+    "complete": {
+      "fps": 8,
+      "loop": false,
+      "frames": [
+        "complete/frame_001.png",
+        "complete/frame_002.png",
+        "complete/frame_003.png",
+        "complete/frame_004.png",
+        "complete/frame_005.png",
+        "complete/frame_006.png",
+        "complete/frame_007.png",
+        "complete/frame_008.png"
+      ]
     }
   }
 }

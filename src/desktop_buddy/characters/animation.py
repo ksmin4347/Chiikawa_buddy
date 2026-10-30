@@ -75,6 +75,7 @@ class AnimationState(QObject):
     def __init__(self, clips: dict[str, Clip]):
         super().__init__()
         self.clips = clips
+        self.base_state = "idle"
         self.state = "idle"
         self.index = 0
 
@@ -91,10 +92,17 @@ class AnimationState(QObject):
         self.index = 0
         self.state_changed.emit(self.state)
 
+    def set_base(self, state: str) -> None:
+        old_base = self.base_state
+        self.base_state = state if state in self.clips else "idle"
+        if self.state == old_base or self.clip.loop:
+            if self.state != self.base_state:
+                self.play(self.base_state)
+
     def advance(self) -> None:
         if self.index + 1 < len(self.clip.frames):
             self.index += 1
         elif self.clip.loop:
             self.index = 0
         else:
-            self.play("idle")
+            self.play(self.base_state)

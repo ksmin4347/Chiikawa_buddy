@@ -25,11 +25,16 @@ from desktop_buddy.core.metadata import APP_NAME, VERSION
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.calendar_page import CalendarPage
 from desktop_buddy.ui.common import button, card, label
+from desktop_buddy.ui.focus_page import FocusPage
 from desktop_buddy.ui.planning_actions import PlanningActions
+from desktop_buddy.ui.statistics_page import StatisticsPage
 from desktop_buddy.ui.today_page import TodayPage
 
 
 class ManagementWindow(QMainWindow):
+    FOCUS_PAGE = 3
+    STATISTICS_PAGE = 4
+    SETTINGS_PAGE = 5
     greet_requested = Signal()
     find_requested = Signal()
     toggle_pet_requested = Signal()
@@ -37,7 +42,7 @@ class ManagementWindow(QMainWindow):
     reset_requested = Signal()
     closing = Signal()
 
-    def __init__(self, service: SettingsService, preview, data_dir, planning):
+    def __init__(self, service: SettingsService, preview, data_dir, planning, timer, statistics):
         super().__init__()
         self.service = service
         self.planning = planning
@@ -72,12 +77,14 @@ class ManagementWindow(QMainWindow):
         nav_layout.addSpacing(28)
         self.pages = QStackedWidget()
         self.nav_group = QButtonGroup(self)
-        for index, title in enumerate(["홈", "오늘의 계획", "캘린더", "설정"]):
+        for index, title in enumerate(
+            ["홈", "오늘의 계획", "캘린더", "집중 타이머", "공부 통계", "설정"]
+        ):
             nav = QPushButton(title)
             nav.setCheckable(True)
             nav.setProperty("nav", True)
             nav.setCursor(Qt.CursorShape.PointingHandCursor)
-            nav.clicked.connect(lambda _checked=False, i=index: self.pages.setCurrentIndex(i))
+            nav.clicked.connect(lambda _checked=False, i=index: self.open_page(i))
             self.nav_group.addButton(nav, index)
             nav_layout.addWidget(nav)
         self.nav_group.button(0).setChecked(True)
@@ -92,6 +99,10 @@ class ManagementWindow(QMainWindow):
         self.pages.addWidget(self.today_page)
         self.calendar_page = CalendarPage(planning, service, self.actions)
         self.pages.addWidget(self.calendar_page)
+        self.focus_page = FocusPage(timer, planning, service)
+        self.pages.addWidget(self.focus_page)
+        self.statistics_page = StatisticsPage(statistics, planning)
+        self.pages.addWidget(self.statistics_page)
         self._make_settings(data_dir)
         planning.changed.connect(self.refresh_planning)
         self.refresh_planning()
@@ -152,7 +163,7 @@ class ManagementWindow(QMainWindow):
         shortcuts = QHBoxLayout()
         shortcuts.addWidget(button("오늘의 계획", lambda: self.open_page(1), True))
         shortcuts.addWidget(button("캘린더 보기", lambda: self.open_page(2)))
-        shortcuts.addWidget(button("할 일 추가", self.actions.add_task))
+        shortcuts.addWidget(button("집중 시작", lambda: self.open_page(self.FOCUS_PAGE)))
         content.addLayout(shortcuts)
         body.addWidget(frame)
         frame, content = card("이렇게 함께해요")
@@ -176,7 +187,7 @@ class ManagementWindow(QMainWindow):
         body.addWidget(
             label(
                 "계획과 일정은 이 컴퓨터에 저장돼요.\n"
-                "집중 타이머 · 통계 · 채팅은 다음 단계에서 만나요.",
+                "집중 타이머로 공부하고, 통계에서 쌓인 시간을 확인해요.",
                 "muted",
             )
         )
@@ -286,7 +297,7 @@ class ManagementWindow(QMainWindow):
         content.addWidget(button("카테고리 관리", self.actions.manage_categories))
         body.addWidget(frame)
         frame, content = card("데이터와 프로그램")
-        content.addWidget(label("설정과 캐릭터 위치는 아래 폴더에 보관해요.", "muted"))
+        content.addWidget(label("설정·계획·집중 기록은 아래 폴더에 보관해요.", "muted"))
         path_label = label(str(data_dir))
         path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         content.addWidget(path_label)
@@ -375,6 +386,9 @@ class ManagementWindow(QMainWindow):
             self.today_page.refresh()
         elif index == 2:
             self.calendar_page.refresh()
+        elif index == self.FOCUS_PAGE:
+            self.focus_page.refresh_counts()
+            self.focus_page.refresh_links()
         self.pages.setCurrentIndex(index)
         self.nav_group.button(index).setChecked(True)
         self.showNormal()

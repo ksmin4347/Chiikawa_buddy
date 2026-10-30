@@ -17,6 +17,9 @@ class PetWindow(QWidget):
     position_changed = Signal(int, int)
     single_clicked = Signal()
     visibility_changed = Signal(bool)
+    geometry_changed = Signal()
+    hover_changed = Signal(bool)
+    timer_requested = Signal()
 
     def __init__(self, animation: AnimationState, settings: Settings):
         flags = Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
@@ -82,15 +85,16 @@ class PetWindow(QWidget):
         if not settings.bubbles_enabled:
             self.bubble.hide()
         if settings.reduce_motion:
-            self.animation.play("idle")
+            self.animation.play(self.animation.base_state)
         self._update_timer()
         self.update()
+        self.geometry_changed.emit()
 
     def _update_timer(self) -> None:
         if (
             self.isVisible()
             and not self.settings.reduce_motion
-            and len(self.animation.clip.frames) > 1
+            and (len(self.animation.clip.frames) > 1 or not self.animation.clip.loop)
         ):
             self.animation_timer.start(
                 max(33, round(100000 / (self.animation.clip.fps * self.settings.animation_speed)))
@@ -133,6 +137,7 @@ class PetWindow(QWidget):
         self.animation_timer.stop()
         self._click_timer.stop()
         self.bubble.hide()
+        self.hover_changed.emit(False)
         self.visibility_changed.emit(False)
         super().hideEvent(event)
 
@@ -179,6 +184,7 @@ class PetWindow(QWidget):
         self._click_timer.stop()
         menu = QMenu(self)
         menu.addAction("관리창 열기", self.manage_requested.emit)
+        menu.addAction("집중 타이머", self.timer_requested.emit)
         menu.addAction("인사하기", self.react)
         menu.addSeparator()
         menu.addAction("오른쪽 아래로 이동", self.reset_requested.emit)
@@ -197,6 +203,18 @@ class PetWindow(QWidget):
     def ensure_visible_position(self, *_args) -> None:
         self.move(*self.safe_position(self.x(), self.y()))
         self.position_changed.emit(self.x(), self.y())
+
+    def moveEvent(self, event) -> None:
+        super().moveEvent(event)
+        self.geometry_changed.emit()
+
+    def enterEvent(self, event) -> None:
+        super().enterEvent(event)
+        self.hover_changed.emit(True)
+
+    def leaveEvent(self, event) -> None:
+        super().leaveEvent(event)
+        self.hover_changed.emit(False)
 
     def closeEvent(self, event) -> None:
         if self.allow_close:

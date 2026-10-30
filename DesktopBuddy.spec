@@ -6,7 +6,8 @@ root = Path(SPECPATH)
 a = Analysis(
     [str(root / 'desktop_buddy_entry.py')],
     pathex=[str(root / 'src')],
-    datas=[(str(root / 'assets'), 'assets')] + collect_data_files('tzdata'),
+    datas=[(str(root / 'assets' / 'default_character'), 'assets/default_character'),
+           (str(root / 'assets' / 'icons'), 'assets/icons')] + collect_data_files('tzdata'),
     hiddenimports=[],
     excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.QtQml', 'PySide6.QtQuick',

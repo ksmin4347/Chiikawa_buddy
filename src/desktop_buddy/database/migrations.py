@@ -1,6 +1,6 @@
 import sqlite3
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def migrate(connection: sqlite3.Connection, old_version: int) -> None:
@@ -58,4 +58,31 @@ def migrate(connection: sqlite3.Connection, old_version: int) -> None:
                 ("약속", "#526eab"),
             ],
         )
+    if old_version < 3:
+        statements = [
+            """CREATE TABLE focus_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                kind TEXT NOT NULL CHECK(kind IN ('focus','short_break','long_break')),
+                planned_seconds REAL NOT NULL CHECK(planned_seconds > 0),
+                started_at TEXT NOT NULL, ended_at TEXT,
+                active_seconds REAL NOT NULL DEFAULT 0 CHECK(active_seconds >= 0),
+                paused_seconds REAL NOT NULL DEFAULT 0 CHECK(paused_seconds >= 0),
+                completed INTEGER NOT NULL DEFAULT 0, interrupted INTEGER NOT NULL DEFAULT 0,
+                category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+                category_name TEXT NOT NULL, category_color TEXT NOT NULL,
+                task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+                task_key TEXT, task_title TEXT NOT NULL, exit_reason TEXT NOT NULL DEFAULT '')""",
+            """CREATE TABLE focus_segments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER NOT NULL REFERENCES focus_sessions(id) ON DELETE CASCADE,
+                started_at TEXT NOT NULL, ended_at TEXT NOT NULL,
+                elapsed_seconds REAL NOT NULL CHECK(elapsed_seconds >= 0))""",
+            """CREATE TABLE timer_state (
+                singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                payload TEXT NOT NULL)""",
+            "CREATE INDEX focus_segments_dates_idx ON focus_segments(started_at,ended_at)",
+            "CREATE INDEX focus_sessions_end_idx ON focus_sessions(kind,ended_at)",
+        ]
+        for statement in statements:
+            connection.execute(statement)
     connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

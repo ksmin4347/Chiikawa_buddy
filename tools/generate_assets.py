@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QImage, QPainter, QPainterPat
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def draw(happy: bool, frame: int) -> QImage:
+def draw(happy: bool, frame: int, state: str = "idle") -> QImage:
     image = QImage(512, 512, QImage.Format.Format_ARGB32)
     image.fill(Qt.GlobalColor.transparent)
     p = QPainter(image)
@@ -82,6 +82,30 @@ def draw(happy: bool, frame: int) -> QImage:
         for x, y in [(37, 76), (216, 67)]:
             p.drawLine(x - 5, y, x + 5, y)
             p.drawLine(x, y - 5, x, y + 5)
+    if state == "focus":
+        p.setPen(outline)
+        p.setBrush(QColor("#f8edd3"))
+        p.drawRoundedRect(78, 169, 100, 46, 4, 4)
+        p.drawLine(128, 172, 128, 212)
+        p.setPen(QPen(QColor("#9ca78a"), 2))
+        for y in (181, 190, 199):
+            p.drawLine(88, y, 117, y)
+            p.drawLine(139, y, 167, y)
+    elif state == "break":
+        p.setPen(outline)
+        p.setBrush(QColor("#fff5dd"))
+        p.drawEllipse(146, 173, 24, 22)
+        p.drawRoundedRect(102, 168, 52, 39, 8, 8)
+        p.setPen(QPen(QColor("#769382"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        for x in (116, 133):
+            steam = QPainterPath(QPointF(x, 159))
+            steam.cubicTo(x - 8, 154, x + 7, 149, x, 144 - frame % 3)
+            p.drawPath(steam)
+    elif state == "complete":
+        p.setPen(Qt.PenStyle.NoPen)
+        for index, color in enumerate(("#d79e52", "#74a2c4", "#b28cbb", "#8da654")):
+            p.setBrush(QColor(color))
+            p.drawEllipse(25 + index * 64, 45 + (frame * 5 + index * 11) % 42, 7, 11)
     p.end()
     return image
 
@@ -90,15 +114,19 @@ def main():
     app = QGuiApplication([])
     root = ROOT / "assets" / "default_character"
     states = {}
-    for name in ("idle", "happy"):
+    for name in ("idle", "happy", "focus", "break", "complete"):
         directory = root / name
         directory.mkdir(parents=True, exist_ok=True)
         frames = []
         for index in range(8):
             relative = f"{name}/frame_{index + 1:03}.png"
-            assert draw(name == "happy", index).save(str(root / relative))
+            assert draw(name in ("happy", "complete"), index, name).save(str(root / relative))
             frames.append(relative)
-        states[name] = {"fps": 3 if name == "idle" else 8, "loop": name == "idle", "frames": frames}
+        states[name] = {
+            "fps": 3 if name in ("idle", "focus", "break") else 8,
+            "loop": name in ("idle", "focus", "break"),
+            "frames": frames,
+        }
     (root / "manifest.json").write_text(
         json.dumps(
             {
@@ -115,7 +143,7 @@ def main():
     icon = draw(False, 0)
     icon.save(str(ROOT / "assets" / "icons" / "buddy.png"))
     icon.save(str(ROOT / "assets" / "icons" / "buddy.ico"))
-    print("Created 16 transparent PNG frames and app icons.")
+    print("Created 40 transparent PNG frames and app icons.")
     del app
 
 

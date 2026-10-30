@@ -8,7 +8,7 @@ class NotificationService(QObject):
     due = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, planning, settings, clock=None):
+    def __init__(self, planning, settings, clock=None, is_focusing=None):
         super().__init__()
         self.planning, self.settings = planning, settings
         self.clock = clock or (lambda: datetime.now(UTC))
@@ -16,6 +16,7 @@ class NotificationService(QObject):
         self.timer.setInterval(30000)
         self.timer.timeout.connect(self.poll)
         self.last_check = None
+        self.is_focusing = is_focusing or (lambda: False)
 
     def start(self) -> None:
         self.poll()
@@ -28,6 +29,12 @@ class NotificationService(QObject):
         settings = self.settings.current
         if not settings.notifications_enabled or settings.notifications_paused:
             return True
+        if settings.focus_quiet and self.is_focusing():
+            return True
+        return self.quiet_hours(now)
+
+    def quiet_hours(self, now: datetime) -> bool:
+        settings = self.settings.current
         if not settings.quiet_enabled:
             return False
         local = now.astimezone(self.planning.zone).strftime("%H:%M")

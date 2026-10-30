@@ -8,7 +8,7 @@ from desktop_buddy.core.paths import asset_directory
 
 def test_original_assets_and_one_shot_return(qapp):
     clips = load_clips(asset_directory() / "default_character")
-    assert set(clips) == {"idle", "happy"}
+    assert set(clips) == {"idle", "happy", "focus", "break", "complete"}
     assert len(clips["idle"].frames) == 8
     for clip in clips.values():
         assert all(frame.hasAlphaChannel() for frame in clip.frames)

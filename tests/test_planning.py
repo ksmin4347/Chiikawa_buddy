@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from desktop_buddy.database.migrations import SCHEMA_VERSION
 from desktop_buddy.database.store import Store
 from desktop_buddy.models.planning import CalendarEvent, Task
 from desktop_buddy.services.planning_service import PlanningService
@@ -41,7 +42,7 @@ def test_migrate_v1_preserves_settings_and_backup(tmp_path):
     connection.close()
     store = Store(path)
     assert store.load_settings().character_name == "예전 친구"
-    assert store.connection.execute("PRAGMA user_version").fetchone()[0] == 2
+    assert store.connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert store.connection.execute("SELECT COUNT(*) FROM tasks").fetchone()[0] == 0
     backup = list(tmp_path.glob("*.backup.db"))
     assert len(backup) == 1

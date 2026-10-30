@@ -20,6 +20,14 @@ class Settings:
     quiet_enabled: bool = False
     quiet_start: str = "22:00"
     quiet_end: str = "08:00"
+    focus_minutes: int = 25
+    break_minutes: int = 5
+    long_break_minutes: int = 15
+    long_break_interval: int = 4
+    auto_next_phase: bool = False
+    timer_notifications: bool = True
+    focus_quiet: bool = True
+    mini_timer_mode: str = "focus"
     x: int | None = None
     y: int | None = None
 
@@ -37,6 +45,26 @@ class Settings:
                     max(lower, min(upper, value))
                     if type(value) is int
                     else getattr(defaults, field.name)
+                )
+            elif field.name in {
+                "focus_minutes",
+                "break_minutes",
+                "long_break_minutes",
+                "long_break_interval",
+            }:
+                upper = (
+                    1440
+                    if field.name == "focus_minutes"
+                    else (12 if field.name == "long_break_interval" else 240)
+                )
+                clean[field.name] = (
+                    max(1, min(upper, value))
+                    if type(value) is int
+                    else getattr(defaults, field.name)
+                )
+            elif field.name == "mini_timer_mode":
+                clean[field.name] = (
+                    value if value in ("always", "focus", "hover", "never") else "focus"
                 )
             elif field.name == "week_start":
                 clean[field.name] = value if type(value) is int and value in (0, 6) else 6

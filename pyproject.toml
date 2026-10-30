@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "desktop-buddy"
-version = "0.2.0"
+version = "0.3.0"
 description = "로컬 우선 Windows 데스크톱 캐릭터"
 requires-python = ">=3.12"
 dependencies = ["PySide6-Essentials>=6.8,<7", "python-dateutil>=2.9,<3", "tzdata>=2025.1"]

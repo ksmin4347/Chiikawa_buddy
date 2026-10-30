@@ -3,6 +3,7 @@
 # ruff: noqa: E402 -- Configure offscreen Qt and source path before importing GUI modules.
 import os
 import sys
+import uuid
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
@@ -36,7 +37,7 @@ for font_file in ["malgun.ttf", "malgunbd.ttf"]:
 app.setFont(QFont("Malgun Gothic", 10))
 app.setStyle("Fusion")
 app.setQuitOnLastWindowClosed(False)
-directory = ROOT / ".qa" / "preview-data"
+directory = ROOT / ".qa" / "preview-data-phase3" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -84,6 +85,26 @@ if not planning.repository.records("task") and not planning.repository.records("
     )
 controller = BuddyApplication(app, store, guard, Path("%LOCALAPPDATA%") / "DesktopBuddy")
 controller.settings.update(theme="light")
+repository = controller.focus_timer.repository
+if not store.connection.execute("SELECT 1 FROM focus_sessions LIMIT 1").fetchone():
+    with store.connection:
+        for days_ago in range(7):
+            start = datetime.combine(day - timedelta(days=days_ago), time(9), planning.zone)
+            seconds = [1500, 2100, 3300, 1200, 2700, 1800, 2400][days_ago]
+            category = planning.categories()[days_ago % 2]
+            item_id = repository.create(
+                "focus",
+                seconds,
+                start,
+                (category.id, category.name, category.color),
+                None,
+                None,
+                "자료구조 개념 복습" if days_ago % 2 == 0 else "알고리즘 2문제 풀기",
+            )
+            end = start + timedelta(seconds=seconds)
+            repository.progress(item_id, seconds, 0)
+            repository.segment(None, item_id, start, end, seconds)
+            repository.finish(item_id, end, True, "completed")
 output = ROOT / "docs" / "images"
 output.mkdir(exist_ok=True)
 controller.manager.resize(1120, 820)
@@ -96,7 +117,26 @@ for mode, filename in [("week", "calendar-week.png"), ("day", "calendar-day.png"
     calendar_page.mode_combo.setCurrentIndex(calendar_page.mode_combo.findData(mode))
     settle()
     assert controller.manager.grab().save(str(output / filename))
-controller.manager.open_page(3)
+controller.manager.open_page(controller.manager.FOCUS_PAGE)
+controller.focus_timer.start(task=planning.occurrences(day, day + timedelta(days=1), "task")[1])
+settle()
+assert controller.manager.grab().save(str(output / "focus.png"))
+controller.manager.focus_page.verticalScrollBar().setValue(
+    controller.manager.focus_page.verticalScrollBar().maximum()
+)
+settle()
+assert controller.manager.grab().save(str(output / "focus-settings.png"))
+controller.focus_timer.stop()
+controller.manager.open_page(controller.manager.STATISTICS_PAGE)
+settle()
+assert controller.manager.grab().save(str(output / "statistics.png"))
+controller.manager.statistics_page.verticalScrollBar().setValue(
+    controller.manager.statistics_page.verticalScrollBar().maximum()
+)
+settle()
+assert controller.manager.grab().save(str(output / "statistics-records.png"))
+controller.manager.statistics_page.verticalScrollBar().setValue(0)
+controller.manager.open_page(controller.manager.SETTINGS_PAGE)
 controller.manager.resize(960, 980)
 settle()
 assert controller.manager.grab().save(str(output / "settings.png"))
@@ -109,5 +149,8 @@ calendar_page.mode_combo.setCurrentIndex(0)
 controller.manager.open_page(2)
 settle()
 assert controller.manager.grab().save(str(output / "calendar-dark.png"))
+controller.manager.open_page(controller.manager.STATISTICS_PAGE)
+settle()
+assert controller.manager.grab().save(str(output / "statistics-dark.png"))
 controller.shutdown()
 print("Rendered home, planning, calendar views, settings, and dark views from QA fixtures.")

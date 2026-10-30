@@ -1,4 +1,4 @@
-# 아키텍처 — 0.2.0
+# 아키텍처 — 0.3.0
 
 ## 연결 구조
 
@@ -9,12 +9,17 @@ flowchart LR
     App --> Settings[SettingsService]
     App --> Planning[PlanningService]
     App --> Notifications[NotificationService]
-    App --> Views[한 관리창: 홈 / 계획 / 달력 / 설정]
+    App --> Focus[FocusTimerService]
+    Focus --> Stats[StudyStatistics]
+    Focus --> FocusRepo[FocusRepository]
+    Stats --> FocusRepo
+    FocusRepo --> DB
+    App --> Views[한 관리창: 홈 / 계획 / 달력 / 집중 / 통계 / 설정]
     App --> Pet[펫 / 말풍선 / 트레이]
     Views --> Settings
     Views --> Planning
     Planning --> Repo[PlanningRepository]
-    Repo --> DB[SQLite 스키마 2]
+    Repo --> DB[SQLite 스키마 3]
     Settings --> DB
     Notifications --> Planning
     Notifications --> Repo
@@ -34,7 +39,7 @@ flowchart LR
 
 ## 저장소
 
-`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 2`.
+`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 3`.
 
 | 테이블 | 역할 |
 |---|---|
@@ -45,8 +50,11 @@ flowchart LR
 | recurrence_exceptions | task/event 중 하나만 소유, 원래 발생 날짜, 취소 또는 전체 개별 수정 스냅샷 |
 | task_completions | 반복 할 일의 ID + 원래 날짜별 완료/취소 |
 | notification_log | 알림 키별 처리 시각과 shown/suppressed 상태 |
+| focus_sessions | 종류·예정/실제/일시정지·완료/중지·과목/할 일 스냅샷 |
+| focus_segments | 재개부터 일시정지까지 실제 집중 구간, 동일 구간 체크포인트 UPDATE |
+| timer_state | 단일 미완료 세션과 다음 단계·사이클·연결 정보 체크포인트 |
 
-일정과 할 일은 별도 테이블이다. 현재 버전은 공부 기록을 저장하지 않는다. 항목과 분류 ID는 AUTOINCREMENT로 재사용하지 않아 이전 알림 이력·개별 스냅샷이 새 항목에 잘못 적용되는 것을 막는다.
+일정과 할 일은 별도 테이블이다. 집중은 세션과 실제 집중 구간을 나눠 저장한다. 항목과 분류 ID는 AUTOINCREMENT로 재사용하지 않아 이전 알림 이력·개별 스냅샷이 새 항목에 잘못 적용되는 것을 막는다.
 
 SQLite foreign_keys와 트랜잭션을 사용한다. 이전 DB를 열 때 backup API로 원본 백업을 만든 뒤 명시적 BEGIN IMMEDIATE에서 DDL과 버전을 함께 이전한다. 실패하면 전체 롤백하고 DB를 초기화하지 않는다. 저장 성공 후에만 changed 신호를 발생시켜 화면을 갱신한다.
 
@@ -78,4 +86,19 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 
 ## 미래 경계 — 미구현
 
-PHASE 3은 독립 타이머 서비스와 실제 집중 구간·일시정지·절전 복구·자정별 통계다. 감정 판단, 브리핑, 오프라인 명령, 개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
+감정 판단, 브리핑, 오프라인 명령, 개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
+
+
+## 집중 시간과 복구
+
+`models/focus.py`는 Clock 프로토콜과 불변 타이머 스냅샷을 정의한다. `services/focus_timer.py`는 1초 QTimer와 monotonic 차이로 실제 진행을 측정한다. [Python 시간 문서](https://docs.python.org/3/library/time.html)에 따라 시간 측정만으로 절전을 구분할 수 없으므로 벽시계와 비교하고, 5초 초과 응답 공백·2초 초과 차이·역행을 감지하면 공백을 적립하지 않고 일시정지한다.
+
+`power_events.py`는 [Windows WM_POWERBROADCAST](https://learn.microsoft.com/en-us/windows/win32/power/wm-powerbroadcast)의 절전/복귀 이벤트를 [Qt 네이티브 이벤트 필터](https://doc.qt.io/qtforpython-6/PySide6/QtCore/QAbstractNativeEventFilter.html)로 관찰한다. 시스템 전원 설정을 변경하지 않는다. 자동 재개하지 않는다.
+
+5초와 상태 전환마다 진행과 구간을 트랜잭션으로 저장한다. 같은 연속 구간은 UPDATE하여 초마다 행을 만들지 않는다. 정상 종료는 마지막 진행을 저장한다. 강제 종료는 마지막 약 5초가 유실될 수 있지만 재시작 공백을 추가하지 않는다. 미완료 체크포인트는 일시정지로 복구하고, 고아 세션은 중단 처리한다. 저장 실패도 일시정지하며 오류를 안내한다.
+
+`study_statistics.py`는 UTC 구간을 지역 자정 경계에서 나눠 monotonic 초를 비례 배분한다. 휴식 구간은 공부 통계에서 제외한다. 분류/할 일 삭제 뒤에도 저장한 이름으로 기록이 남고 기록 삭제는 CASCADE로 구간을 함께 제거한다. 분류 변경과 삭제 뒤 모든 집계를 다시 계산한다. 종료 기록의 시간 자체는 수동으로 바꾸지 않는다.
+
+`FocusPage`, `StatisticsPage`, `MiniTimer`는 계산과 저장을 서비스에 맡긴다. 통계는 보이는 동안 체크포인트/날짜 주기에 갱신한다. 작은 타이머는 마우스 입력을 통과시키고 펫 위치·화면 작업 영역을 따른다. 애니메이션은 focus/break 기본 상태와 일회성 반응을 분리하여 반응 뒤 현재 기본 상태로 돌아간다.
+
+빌드는 `assets/default_character`와 `assets/icons`만 명시적으로 포함한다. 준비 중인 `assets/characters`의 사용자 자료가 배포본에 섞이지 않는다.

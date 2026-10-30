@@ -23,6 +23,7 @@ class FocusPage(QScrollArea):
     def __init__(self, timer, planning, settings):
         super().__init__()
         self.timer, self.planning, self.settings = timer, planning, settings
+        self._defaults = {}
         self.setWidgetResizable(True)
         page = QWidget()
         self.setWidget(page)
@@ -208,7 +209,15 @@ class FocusPage(QScrollArea):
         self.quiet.setChecked(current.focus_quiet)
         self.mini_mode.setCurrentIndex(self.mini_mode.findData(current.mini_timer_mode))
         del blockers
-        if self.timer.status == "idle":
+        defaults = {
+            "focus": current.focus_minutes,
+            "short_break": current.break_minutes,
+            "long_break": current.long_break_minutes,
+        }
+        kind = self.kind.currentData()
+        previous = self._defaults.get(kind)
+        self._defaults = defaults
+        if self.timer.status == "idle" and (previous is None or self.minutes.value() == previous):
             self.default_minutes()
 
     def refresh_links(self) -> None:

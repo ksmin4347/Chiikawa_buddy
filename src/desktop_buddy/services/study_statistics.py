@@ -66,6 +66,11 @@ class StudyStatistics(QObject):
             tasks[segment["task_title"] or "연결 없는 집중"] += seconds
         count = self.repository.completed_count(lower, upper)
         recent = self.repository.recent(lower, upper)
+        for row in recent:
+            category = current_categories.get(row["category_id"])
+            if category is not None:
+                row["category_name"] = category.name
+                row["category_color"] = category.color
         return {
             "seconds": sum(daily.values()),
             "daily": dict(daily),

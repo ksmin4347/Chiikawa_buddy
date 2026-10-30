@@ -31,7 +31,7 @@ class CompanionService(QObject):
         self.settings, self.focus = settings, focus
         self.clock = clock or SystemClock()
         self.repository = CompanionRepository(store.connection)
-        self.guard = LocalDayGuard(self.repository, self.clock)
+        self.guard = LocalDayGuard(self.repository, self.clock, focus.planning.zone)
         self.attention = attention or WindowsAttention()
         self.snapshot = CompanionSnapshot()
         self.can_notify = lambda: False

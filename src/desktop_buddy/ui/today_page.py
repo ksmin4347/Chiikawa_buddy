@@ -115,6 +115,10 @@ class TodayPage(QWidget):
     def day(self):
         return self.date_edit.date().toPython()
 
+    def roll_day(self, previous, current) -> None:
+        if self.day == previous:
+            self.date_edit.setDate(QDate(current))
+
     def go_today(self):
         day = self.service.today()
         self.date_edit.setDate(QDate(day.year, day.month, day.day))

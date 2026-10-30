@@ -307,6 +307,7 @@ class BuddyApplication:
                 "Timer shutdown checkpoint failed (%s)", type(error).__name__
             )
         self.manager.statistics_page.refresh_timer.stop()
+        self.manager.clock_timer.stop()
         self.app.removeNativeEventFilter(self.power_filter)
         self.settings.update(x=self.pet.x(), y=self.pet.y())
         self.pet.hide()

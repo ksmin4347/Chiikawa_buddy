@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from PySide6.QtCore import QSignalBlocker, Qt, QTime, Signal
+from PySide6.QtCore import QSignalBlocker, Qt, QTime, QTimer, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -116,6 +116,12 @@ class ManagementWindow(QMainWindow):
         self.refresh_planning()
         service.changed.connect(self.refresh)
         self.refresh(service.current)
+        self._today = planning.today()
+        self.clock_timer = QTimer(self)
+        self.clock_timer.setInterval(30000)
+        self.clock_timer.timeout.connect(self.refresh_clock)
+        self.clock_timer.start()
+        timer.records_changed.connect(self.refresh_clock)
 
     def _page(self) -> QVBoxLayout:
         area = QScrollArea()
@@ -385,6 +391,15 @@ class ManagementWindow(QMainWindow):
                 self.next_summary.setText("오늘 남은 일정이 없어요. 편안한 하루를 보내요.")
         except Exception:
             self.today_summary.setText("계획을 불러오지 못했어요. 저장 공간을 확인해 주세요.")
+
+    def refresh_clock(self) -> None:
+        day = self.planning.today()
+        if day != self._today:
+            previous, self._today = self._today, day
+            self.today_page.roll_day(previous, day)
+            self.calendar_page.refresh()
+        if self.isVisible() and self.pages.currentIndex() == 0:
+            self.refresh_planning()
 
     def set_pet_visible(self, visible: bool) -> None:
         self.visibility_button.setText("캐릭터 숨기기" if visible else "캐릭터 다시 표시")

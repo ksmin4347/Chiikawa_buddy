@@ -1,6 +1,7 @@
 import logging
 import math
 from datetime import datetime, time, timedelta
+from typing import Literal
 
 from PySide6.QtCore import QObject, QTimer, Signal
 
@@ -172,7 +173,7 @@ class FocusTimerService(QObject):
         kind: Phase = "focus",
         minutes: float | None = None,
         task: Occurrence | None = None,
-        category_id: int | None = None,
+        category_id: int | None | Literal["task"] = "task",
     ) -> None:
         if self.status in ("running", "paused"):
             raise ValueError("진행 중인 타이머를 먼저 중지해 주세요.")
@@ -189,8 +190,8 @@ class FocusTimerService(QObject):
                 raise ValueError("연결할 할 일을 다시 선택해 주세요.")
             record = self.planning.repository.get("task", task.item_id)
             task_id, task_key, task_title = record.id, task.key, task.title
-            if category_id is None:
-                category_id = record.category_id
+        if category_id == "task":
+            category_id = task.record.category_id if task is not None else None
         self._link = {"task_id": task_id, "task_key": task_key, "category_id": category_id}
         self._begin(kind, seconds, task_title)
 

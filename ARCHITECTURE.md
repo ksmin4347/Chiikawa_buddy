@@ -1,4 +1,4 @@
-# 아키텍처 — 0.5.1
+# 아키텍처 — 0.5.2
 
 ## 연결 구조
 
@@ -91,7 +91,7 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 
 ## 미래 경계 — 미구현
 
-개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
+개발자 제공 캐릭터 팩·첫 선택/변경은 0.5.2에 기존 설정 구조로 추가했다. AI BYOK 보안 저장, ICS와 공식 제공자 연동은 후속 단계다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
 
 
 ## 집중 시간과 복구
@@ -106,7 +106,7 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 
 `FocusPage`, `StatisticsPage`, `MiniTimer`는 계산과 저장을 서비스에 맡긴다. 통계는 보이는 동안 체크포인트/날짜 주기에 갱신한다. 작은 타이머는 마우스 입력을 통과시키고 펫 위치·화면 작업 영역을 따른다. 애니메이션은 focus/break 기본 상태와 일회성 반응을 분리하여 반응 뒤 현재 기본 상태로 돌아간다.
 
-빌드는 `assets/default_character`와 `assets/icons`만 명시적으로 포함한다. 준비 중인 `assets/characters`의 사용자 자료가 배포본에 섞이지 않는다.
+빌드는 `assets/default_character`, `assets/icons`와 `assets/character_packs`의 고정 3종·각 5파일만 명시적으로 포함한다. 준비 중인 `assets/characters`의 사용자 자료가 배포본에 섞이지 않는다.
 
 
 ## 생활 상태와 안내 — PHASE 4
@@ -141,8 +141,19 @@ SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollb
 
 `characters/dialogue_profiles.py`는 고정 ID·표시 이름·설명, `dialogue_voice.py`는 상황별 문구·감정별 감탄사·표현 선택을 소유한다. 템플릿은 캐릭터/상황별로 순환하고 데이터를 전역 치환하지 않는다. `DialogueVoice.render(event, details, moru_text)`는 사실/기술 문자열인 details를 그대로 결합한다. 기본 모루는 기존 출력과 설정을 보존한다. 응답 속도를 바꾸기 위한 인위적인 대기는 없다.
 
-`ChatService`는 기존 서비스 결과에서 실제 값과 제목 등을 추출하고, 커밋 전 성공 대화/화자 정보를 같은 트랜잭션에 저장한다. 커밋 뒤 신호로 선택이 바뀌어도 이미 작성한 응답의 화자 ID를 덮어쓰지 않는다. `chat_character_id`는 사진 팩과 분리된 대화 선택이며 향후 5B에서 동일한 고정 ID로 연결한다. 기존 메시지를 새 캐릭터로 다시 쓰지 않는다.
+`ChatService`는 실제 조회/실행 결과로 응답을 만들고 성공 대화/화자를 같은 트랜잭션에 저장한다. 커밋 뒤 선택이 바뀌어도 이미 작성한 응답의 화자 ID를 덮어쓰지 않는다. `chat_character_id`와 사진 팩의 `character_id`는 0.5.2부터 같은 고정 ID로 함께 선택한다. 기존 메시지를 새 캐릭터로 다시 쓰지 않는다.
 
 스키마 6은 `chat_messages.character_id`와 `profile_version`을 기본 moru/1로 추가한다. 5→6 이전은 Store의 backup API·DDL 트랜잭션을 사용한다. 보관 off는 RAM 메시지와 화자 정보를 함께 최대 200개로 제한한다. 대화 보관 전환·말투 전환은 대기 카드를 취소하며 진행 타이머와 기존 기록은 보존한다.
 
-`ChatPage`는 대화 선택·과거 화자 표시를 담당하며 이미지는 모루임을 표시한다. `PetWindow`와 완료/공백 안내도 같은 설정을 읽는다. 종료된 앱의 초기 인사 콜백은 실행하지 않으며 Qt 컨텍스트가 제거되면 취소한다. 미래 AI 연결은 아직 구현하지 않았고 말투 규칙은 [대화 명세](docs/CHARACTER_DIALOGUE.md)에 기록했다.
+`ChatPage`는 그림/말투 선택과 과거 화자 표시를 담당하며 현재 그림과 말투 이름을 표시한다. `PetWindow`와 완료/공백 안내도 같은 설정을 읽는다. 종료된 앱의 초기 인사 콜백은 실행하지 않으며 Qt 컨텍스트가 제거되면 취소한다. AI 연결은 미구현이며 말투 규칙은 [대화 명세](docs/CHARACTER_DIALOGUE.md)를 따른다.
+
+
+## 캐릭터 팩과 타이머 표시 — 0.5.2
+
+`CharacterCatalog`는 고정 ID에 대응하는 로컬 팩만 읽는다. `PackDecoder`는 PNG 한 파일 8 MiB·개별 프레임 1,024px·아틀라스 4,096px/4,194,304픽셀·전체 64프레임·디코딩 예산 64 MiB를 제한하고 폴더 밖 경로를 거부한다. 헤더를 먼저 검사하고 투명도/빈 프레임/좌표/지연을 확인한다. 런타임 프레임은 256×256으로 정규화하며 누락 상태는 명시적 alias로 같은 캐릭터의 idle을 사용한다.
+
+`CharacterService`는 새 클립과 `PetWindow.prepare_pack`의 크기별 이미지·마스크를 준비한 뒤 설정을 저장하고 교체 신호를 보낸다. 저장·준비 실패 시 기존 팩을 유지한다. `CompanionPresenter`가 현재 집중/수면/숨김 정책을 다시 적용하며 타이머 서비스는 교체하지 않는다. 기본 이름만 새 캐릭터 이름을 따르고 사용자 별명은 유지한다.
+
+`CharacterPage`는 상태별 정적 미리보기와 선택을 제공한다. 첫 실행의 `CharacterPicker`는 비차단 대화상자이며 나중에 선택하면 다음 실행에 다시 안내한다. 기존 설정은 첫 선택을 강제하지 않는다. `character_id`, `chat_character_id`, `character_selection_done`, `mini_timer_style`은 기존 설정 저장 구조를 사용해 스키마 6을 유지한다.
+
+`AnimationState.frame_delay_ms`가 각 프레임의 재생 시간을 제공한다. `PetWindow`는 숨김 시 재생을 멈추며 전환 때 캐시를 교체한다. `MiniTimer`의 원형 표시는 같은 타이머 스냅샷을 그리며 별도 고빈도 시계나 독립 카운트다운을 만들지 않는다. 프리셋/우클릭도 기존 `FocusTimerService`를 호출한다.

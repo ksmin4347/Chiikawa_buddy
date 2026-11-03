@@ -2,15 +2,15 @@
 
 - 목표: Windows 11 중심, Windows 10 호환을 고려한 한국어 로컬 데스크톱 펫과 생산성 비서.
 - Python 3.12+, PySide6, SQLite, pytest, PyInstaller를 사용한다. 브라우저·서버·API 키 없이 기본 기능이 동작해야 한다.
-- 현재 구현 승인 범위는 PHASE 0~4 및 PHASE 5A 오프라인 명령·대화와 캐릭터별 대화 말투 확장이다. PHASE 5·6 설계는 docs/PHASE_5_6_DESIGN.md를 따른다. 대화 말투 선택은 이미지 선택과 구분한다. PHASE 5B 실제 캐릭터 이미지 선택과 PHASE 6 AI 연결은 후속 사용자 요청 후 진행한다.
+- 현재 구현 승인 범위는 PHASE 0~4, PHASE 5A 오프라인 명령·대화, PHASE 5B 제공 3종 캐릭터 선택과 타이머 사용성 개선이다. 그림과 말투는 함께 선택한다. PHASE 5·6 설계는 docs/PHASE_5_6_DESIGN.md를 따르며 PHASE 6 AI 연결은 후속 사용자 요청 후 진행한다.
 - UI, 저장소, 서비스, 캐릭터 상태/프레임 처리를 분리한다. 미래 기능을 위한 빈 클래스나 가짜 버튼은 만들지 않는다.
 - 신규 기능은 REQUIREMENTS.md와 ROADMAP.md에서 범위를 확인한다. 완료 상태를 실제 구현·검증과 일치시킨다.
 - 사용자 데이터는 %LOCALAPPDATA%/DesktopBuddy에 둔다. 앱 이름 변경 시 데이터 폴더를 임의로 바꾸지 않는다.
 - 사용자 DB/파일을 임의로 삭제·초기화하지 않는다. 스키마 변경 전 SQLite backup API로 백업한다.
 - 네트워크, 시작 프로그램 등록, 사용자 이미지 검색, 텔레메트리는 기본적으로 수행하지 않는다.
 - API 키를 코드, 로그, JSON, SQLite에 넣지 않는다. AI 단계에서 Windows Credential Manager를 사용한다.
-- 공식 캐릭터 이미지를 임의로 다운로드하거나 사용 허락 확인 없이 공개 저장소·배포본에 넣지 않는다. 현재 기본 에셋은 자체 제작한다.
-- 캐릭터 제공 방식은 개발자 번들 목록에서 사용자가 선택하는 구조다. 초기 목표는 치이카와·하치와레·우사기 3종이며 새 캐릭터는 앱 업데이트로 추가한다. 자료 준비 위치는 assets/characters/<id>/idle 이며, 대화 캐릭터 선택은 구현했으며 실제 3종 이미지 선택·연결은 아직 미구현이다.
+- 개발자가 정한 3종 캐릭터 팩과 기본 모루만 번들에 포함한다. assets/characters의 작업 원본을 자동으로 추가하지 않는다.
+- 캐릭터 제공 방식은 개발자 번들 목록에서 사용자가 선택하는 구조다. 치이카와·하치와레·우사기 3종의 첫 선택/변경과 그림·말투 연결을 구현했다. 새 캐릭터는 앱 업데이트로 추가한다. 작업 원본은 assets/characters, 실행 팩은 assets/character_packs에 둔다. 캐릭터를 바꿔도 계획·타이머·위치·직접 숨김과 사용자 별명을 보존한다.
 - Python은 타입 힌트, 명확한 이름, 작은 모듈을 사용하고 ruff 규칙을 따른다.
 - 테스트: `.venv\Scripts\python.exe -m pytest -q`
 - 품질: `.venv\Scripts\python.exe -m ruff check .` 및 `-m ruff format --check .`

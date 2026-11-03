@@ -9,6 +9,7 @@ from test_focus import Clock, advance
 
 from desktop_buddy.chat.parser import SecretInputError, parse
 from desktop_buddy.database.focus_repository import FocusRepository
+from desktop_buddy.database.migrations import SCHEMA_VERSION
 from desktop_buddy.database.store import Store
 from desktop_buddy.models.planning import Task
 from desktop_buddy.services.chat_service import ChatService
@@ -242,10 +243,10 @@ def test_atomic_rollback_database_runtime_signals_and_history(chat, monkeypatch,
     elif stage == "history":
         original = chat.repository.append
 
-        def fail_assistant(session, role, body):
+        def fail_assistant(session, role, body, **kwargs):
             if role == "assistant":
                 raise sqlite3.OperationalError("full")
-            return original(session, role, body)
+            return original(session, role, body, **kwargs)
 
         monkeypatch.setattr(chat.repository, "append", fail_assistant)
     else:
@@ -350,7 +351,7 @@ def test_v4_backup_migration_preserves_plans_and_focus(qapp, tmp_path):
         store.connection.execute("PRAGMA user_version=4")
     store.close()
     migrated = Store(path)
-    assert migrated.connection.execute("PRAGMA user_version").fetchone()[0] == 5
+    assert migrated.connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert PlanningService(migrated).repository.records("task")[0].title == "보존"
     assert FocusRepository(migrated.connection).all_total() == 10
     assert FocusRepository(migrated.connection).session(session_id)["task_title"] == "공부 보존"

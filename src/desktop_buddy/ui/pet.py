@@ -3,6 +3,7 @@ from PySide6.QtGui import QBitmap, QGuiApplication, QPainter, QRegion
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
 from desktop_buddy.characters.animation import AnimationState
+from desktop_buddy.characters.dialogue_voice import DialogueVoice
 from desktop_buddy.core.geometry import Rect, keep_visible
 from desktop_buddy.core.metadata import APP_NAME
 from desktop_buddy.core.settings import Settings
@@ -33,6 +34,7 @@ class PetWindow(QWidget):
         self.setToolTip("한 번 클릭하면 인사 · 더블클릭하면 관리창 · 드래그로 이동")
         self.animation = animation
         self.settings = settings
+        self.voice = DialogueVoice(lambda: self.settings.chat_character_id)
         self.bubble = SpeechBubble()
         self.bubble_explicit = False
         self.bubble_essential = False
@@ -56,6 +58,8 @@ class PetWindow(QWidget):
         changed_top = (
             bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint) != settings.always_on_top
         )
+        if self.settings.chat_character_id != settings.chat_character_id:
+            self.bubble.hide()
         self.settings = settings
         if changed_top:
             self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, settings.always_on_top)
@@ -118,15 +122,34 @@ class PetWindow(QWidget):
         self.single_clicked.emit()
         if not self.settings.reduce_motion:
             self.animation.play("happy", priority=100)
-        self.speak(f"나는 {self.settings.character_name}! 오늘도 편하게 함께해요.", explicit=True)
+        self.speak(
+            f"나는 {self.settings.character_name}! 오늘도 편하게 함께해요.",
+            explicit=True,
+            event="greeting",
+        )
 
-    def speak(self, text: str, *, explicit: bool = False, essential: bool = False) -> None:
+    def speak(
+        self,
+        text: str,
+        *,
+        explicit: bool = False,
+        essential: bool = False,
+        event: str = "notice",
+        details: str | None = None,
+        already_styled: bool = False,
+    ) -> None:
         if (
             self.settings.bubbles_enabled
             and self.isVisible()
             and self.speech_guard(explicit=explicit, essential=essential)
         ):
             self.bubble_explicit, self.bubble_essential = explicit, essential
+            if not already_styled:
+                text = self.voice.render(
+                    event,
+                    moru_text=text,
+                    details=(text if event == "notice" else "") if details is None else details,
+                )
             self.bubble.speak(text, self.geometry())
 
     def paintEvent(self, _event) -> None:

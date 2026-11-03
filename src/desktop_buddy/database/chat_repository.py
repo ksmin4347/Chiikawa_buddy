@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from desktop_buddy.characters.dialogue_profiles import PROFILE_VERSION
 from desktop_buddy.database.store import Store
 
 
@@ -22,10 +23,12 @@ class ChatRepository:
         )
         return session_id
 
-    def append(self, session_id: str, role: str, body: str) -> int:
+    def append(self, session_id: str, role: str, body: str, character_id: str = "moru") -> int:
         cursor = self.connection.execute(
-            "INSERT INTO chat_messages(session_id,role,body,created_at) VALUES (?,?,?,?)",
-            (session_id, role, body, datetime.now(UTC).isoformat()),
+            "INSERT INTO chat_messages(session_id,role,body,created_at,"
+            "character_id,profile_version) "
+            "VALUES (?,?,?,?,?,?)",
+            (session_id, role, body, datetime.now(UTC).isoformat(), character_id, PROFILE_VERSION),
         )
         if role == "user":
             self.connection.execute(
@@ -42,6 +45,17 @@ class ChatRepository:
             (session_id, before_id if before_id is not None else 9223372036854775807),
         ).fetchall()
         return list(reversed(rows))
+
+    def speakers(self, session_id: str, message_ids: list[int]) -> dict[int, str]:
+        if not message_ids:
+            return {}
+        return dict(
+            self.connection.execute(
+                "SELECT id,character_id FROM chat_messages "
+                "WHERE session_id=? AND id BETWEEN ? AND ?",
+                (session_id, min(message_ids), max(message_ids)),
+            )
+        )
 
     def delete(self, session_id: str | None = None) -> None:
         if session_id is None:

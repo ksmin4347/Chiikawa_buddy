@@ -148,7 +148,17 @@ class BuddyApplication:
         if current.show_on_start or not self.tray.isVisible():
             self.presentation.show_initial(True)
             QTimer.singleShot(
-                700, lambda: self.pet.speak("반가워요! 나를 더블클릭하면 관리창이 열려요.")
+                700,
+                self.pet,
+                lambda: (
+                    self.pet.speak(
+                        "반가워요! 나를 더블클릭하면 관리창이 열려요.",
+                        event="greeting",
+                        details="관리창: 캐릭터 더블클릭",
+                    )
+                    if not self._closed
+                    else None
+                ),
             )
 
         self.notifications.start()
@@ -180,9 +190,12 @@ class BuddyApplication:
             if result.phase == "focus"
             else "휴식이 끝났어요. 준비되면 다시 시작해요."
         )
+        text = self.chat.voice.render(
+            "focus_done" if result.phase == "focus" else "break_done", moru_text=text
+        )
         self.manager.statusBar().showMessage(text, 15000)
         if self.settings.current.timer_notifications and not self.companion.quiet(essential=True):
-            self.pet.speak(text, essential=True)
+            self.pet.speak(text, essential=True, already_styled=True)
             if self.tray.isVisible() and QSystemTrayIcon.supportsMessages():
                 self.tray.showMessage(
                     "타이머 완료", text, QSystemTrayIcon.MessageIcon.Information, 8000
@@ -191,7 +204,9 @@ class BuddyApplication:
     def _task_completed(self) -> None:
         if not self.settings.current.reduce_motion:
             self.animation.play("happy", priority=80)
-        self.pet.speak("하나 끝냈네요. 잘했어요! 잠깐 숨을 돌려도 좋아요.")
+        self.pet.speak(
+            "하나 끝냈네요. 잘했어요! 잠깐 숨을 돌려도 좋아요.", event="success_complete"
+        )
 
     def _notify(self, reminders) -> None:
         title = "다가오는 일정" if len(reminders) == 1 else f"알림 {len(reminders)}개"

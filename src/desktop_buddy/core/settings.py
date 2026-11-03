@@ -1,11 +1,13 @@
 import re
 from dataclasses import asdict, dataclass, fields
 
+from desktop_buddy.characters.dialogue_profiles import PROFILE_IDS
 from desktop_buddy.core.metadata import DEFAULT_CHARACTER_NAME
 
 
 @dataclass(frozen=True)
 class Settings:
+    chat_character_id: str = "moru"
     chat_history_enabled: bool = True
     character_name: str = DEFAULT_CHARACTER_NAME
     size: int = 176
@@ -54,7 +56,9 @@ class Settings:
         clean = {}
         for field in fields(cls):
             value = values.get(field.name, getattr(defaults, field.name))
-            if field.name in {"emotion_gap_days", "valid_focus_minutes", "emotion_message_days"}:
+            if field.name == "chat_character_id":
+                clean[field.name] = value if value in PROFILE_IDS else "moru"
+            elif field.name in {"emotion_gap_days", "valid_focus_minutes", "emotion_message_days"}:
                 lower, upper = {
                     "emotion_gap_days": (2, 30),
                     "valid_focus_minutes": (1, 1440),

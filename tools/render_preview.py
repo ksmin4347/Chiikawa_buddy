@@ -38,7 +38,7 @@ for font_file in ["malgun.ttf", "malgunbd.ttf"]:
 app.setFont(QFont("Malgun Gothic", 10))
 app.setStyle("Fusion")
 app.setQuitOnLastWindowClosed(False)
-directory = ROOT / ".qa" / "preview-data-phase5a" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "preview-data-voices" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -208,5 +208,26 @@ assert controller.manager.grab().save(str(output / "companion-dark.png"))
 controller.manager.open_page(controller.manager.CHAT_PAGE)
 settle()
 assert controller.manager.grab().save(str(output / "chat-dark.png"))
+controller.settings.update(theme="light")
+for character_id in ("chiikawa", "hachiware", "usagi"):
+    controller.chat.set_character(character_id)
+    controller.chat.new_session()
+    for message in (
+        "안녕!",
+        "오늘 공부하기 싫어.",
+        "나 오늘 시험 잘 봤어!",
+        "오늘 얼마나 공부했어?",
+    ):
+        controller.chat.submit(message)
+    controller.manager.open_page(controller.manager.CHAT_PAGE)
+    settle()
+    assert controller.manager.grab().save(str(output / f"chat-{character_id}.png"))
+controller.settings.update(theme="dark")
+settle()
+assert controller.manager.grab().save(str(output / "chat-usagi-dark.png"))
+controller.chat.submit("할 일 추가: 25분 집중 준비")
+controller.manager.resize(720, 560)
+settle()
+assert controller.manager.grab().save(str(ROOT / ".qa" / "voice-small.png"))
 controller.shutdown()
 print("Rendered home, planning, calendar views, settings, and dark views from QA fixtures.")

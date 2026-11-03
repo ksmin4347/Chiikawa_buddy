@@ -14,7 +14,7 @@ class CompanionPresenter:
         self._profile = None
         self.pet.speech_guard = self.can_speak
         companion.changed.connect(self.refresh)
-        companion.nudge.connect(pet.speak)
+        companion.nudge.connect(lambda text: pet.speak(text, event="worried"))
         companion.reaction.connect(lambda state: pet.animation.play(state, priority=40))
         focus.updated.connect(self.refresh)
         settings.changed.connect(self.refresh)

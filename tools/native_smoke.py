@@ -19,7 +19,7 @@ from desktop_buddy.services.single_instance import SingleInstance
 app = QApplication([])
 app.setQuitOnLastWindowClosed(False)
 app.setStyle("Fusion")
-directory = ROOT / ".qa" / "native-smoke-phase5a" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "native-smoke-voices" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -167,6 +167,19 @@ def verify():
             )
         )
         assert controller.manager.grab().save(str(ROOT / ".qa" / "native-chat.png"))
+        for character_id in ("chiikawa", "hachiware", "usagi"):
+            chat.character.setCurrentIndex(chat.character.findData(character_id))
+            chat.input.setText("나 좀 응원해 줘.")
+            chat.send_button.click()
+            response = controller.chat.reply
+            result[f"voice_{character_id}"] = response.character_id == character_id
+            assert result[f"voice_{character_id}"]
+        result["usagi_parenthesized"] = " (" in response.text and response.text.endswith(")")
+        assert result["usagi_parenthesized"]
+        controller.pet.react()
+        result["usagi_click_balloon"] = controller.pet.bubble.text().endswith(")")
+        assert result["usagi_click_balloon"]
+        assert controller.manager.grab().save(str(ROOT / ".qa" / "native-voices.png"))
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
         result["error"] = repr(error)
@@ -182,6 +195,7 @@ result["unfinished_focus_checkpoint"] = (
     >= 0
 )
 result["focus_timer_stopped"] = not controller.focus_timer.timer.isActive()
+result["persisted_voice"] = reopened.load_settings().chat_character_id == "usagi"
 result["persisted_after_exit"] = reopened.load_settings().character_name == "테스트 친구"
 reopened.close()
 next_guard = SingleInstance(directory)
@@ -190,7 +204,7 @@ result["companion_timer_stopped"] = not controller.companion.timer.isActive()
 result["briefing_timer_stopped"] = not controller.briefing.timer.isActive()
 result["notification_timer_stopped"] = not controller.notifications.timer.isActive()
 next_guard.close()
-(ROOT / ".qa" / "native-smoke-phase5a.json").write_text(
+(ROOT / ".qa" / "native-smoke-voices.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
 )
 print(json.dumps(result, ensure_ascii=False))

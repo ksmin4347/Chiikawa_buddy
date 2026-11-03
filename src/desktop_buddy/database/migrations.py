@@ -1,6 +1,6 @@
 import sqlite3
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def migrate(connection: sqlite3.Connection, old_version: int) -> None:
@@ -108,4 +108,11 @@ def migrate(connection: sqlite3.Connection, old_version: int) -> None:
         connection.execute("CREATE INDEX chat_messages_session_idx ON chat_messages(session_id,id)")
         connection.execute("""CREATE TABLE command_operations (
             operation_id TEXT PRIMARY KEY, kind TEXT NOT NULL, completed_at TEXT NOT NULL)""")
+    if old_version < 6:
+        connection.execute(
+            "ALTER TABLE chat_messages ADD COLUMN character_id TEXT NOT NULL DEFAULT 'moru'"
+        )
+        connection.execute(
+            "ALTER TABLE chat_messages ADD COLUMN profile_version INTEGER NOT NULL DEFAULT 1"
+        )
     connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

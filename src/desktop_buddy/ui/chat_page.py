@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from desktop_buddy.characters.dialogue_profiles import PROFILES, profile
 from desktop_buddy.chat.parser import SecretInputError
 from desktop_buddy.ui.common import button, card, label
 
@@ -36,8 +37,21 @@ class ChatPage(QWidget):
         body = QVBoxLayout(self)
         body.setContentsMargins(24, 20, 24, 20)
         body.setSpacing(10)
-        body.addWidget(label("모루와 채팅", "title"))
-        body.addWidget(label("기본 모드 · 인터넷·API 키 없이 지원 명령을 처리해요.", "muted"))
+        heading = QHBoxLayout()
+        self.heading = label("모루와 채팅", "title")
+        heading.addWidget(self.heading, 1)
+        self.character = QComboBox()
+        self.character.setAccessibleName("대화 캐릭터")
+        self.character.setToolTip("대화 말투를 선택해요. 화면 캐릭터 이미지는 모루를 유지해요.")
+        for item in PROFILES:
+            self.character.addItem(item.name, item.id)
+            self.character.setItemData(self.character.count() - 1, item.description, 3)
+        self.character.currentIndexChanged.connect(
+            lambda: self._run(lambda: self.service.set_character(self.character.currentData()))
+        )
+        heading.addWidget(self.character)
+        body.addLayout(heading)
+        body.addWidget(label("오프라인 대화 · 화면 캐릭터: 모루 (이미지 연결 예정)", "muted"))
         row = QHBoxLayout()
         self.sessions = QComboBox()
         self.sessions.setAccessibleName("보관한 대화 선택")
@@ -131,12 +145,18 @@ class ChatPage(QWidget):
             return True
         except SecretInputError as error:
             self.input.clear()
-            self.error.setPlainText(str(error))
+            self.error.setPlainText(
+                self.service.voice.error(str(error), getattr(error, "dialogue_detail", None))
+            )
         except ValueError as error:
-            self.error.setPlainText(str(error))
+            self.error.setPlainText(
+                self.service.voice.error(str(error), getattr(error, "dialogue_detail", None))
+            )
         except Exception:
             self.error.setPlainText(
-                "저장 또는 조회하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요."
+                self.service.voice.error(
+                    "저장 또는 조회하지 못했어요. 저장 공간을 확인하고 다시 시도해 주세요."
+                )
             )
         finally:
             self.refresh()
@@ -200,10 +220,12 @@ class ChatPage(QWidget):
         self._view_generation += 1
         generation = self._view_generation
         old = self.transcript.verticalScrollBar().value()
+        speakers = self.service.message_speakers([row[0] for row in self._rows])
         self.transcript.setPlainText(
             "\n\n".join(
-                f"{'나' if role == 'user' else '모루'} · {self._timestamp(stamp)} KST\n{text}"
-                for _, role, text, stamp in self._rows
+                f"{'나' if role == 'user' else profile(speakers.get(message_id, 'moru')).name} · "
+                f"{self._timestamp(stamp)} KST\n{text}"
+                for message_id, role, text, stamp in self._rows
             )
         )
         scroll = self.transcript.verticalScrollBar()
@@ -230,6 +252,9 @@ class ChatPage(QWidget):
         self._render(False)
 
     def refresh(self):
+        with QSignalBlocker(self.character):
+            self.character.setCurrentIndex(self.character.findData(self.service.character_id))
+        self.heading.setText(f"{self.service.voice.name}와 채팅")
         with QSignalBlocker(self.history), QSignalBlocker(self.sessions):
             self.history.setChecked(self.service.history_enabled)
             self.sessions.clear()

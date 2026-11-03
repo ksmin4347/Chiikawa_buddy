@@ -103,7 +103,9 @@ class CommandExecutor:
             return replace(record, scheduled_date=record.scheduled_date + shift)
         return replace(record, start_at=record.start + shift, end_at=record.end + shift)
 
-    def preview(self, intent: Intent, target: Occurrence | None, scope: str) -> str:
+    def preview(
+        self, intent: Intent, target: Occurrence | None, scope: str, *, informal: bool = False
+    ) -> str:
         kind = intent.kind
         if kind == "add":
             record = self.addition(intent)
@@ -117,13 +119,31 @@ class CommandExecutor:
             return f"추가할 내용\n{describe(record)}\n분류 없음 · 반복 없음{extra}"
         if kind in ("timer_stop", "timer_reset"):
             timer = self.timer
+            status_label = (
+                {
+                    "idle": "대기",
+                    "running": "진행 중",
+                    "paused": "일시정지",
+                    "ready": "다음 단계 대기",
+                }[timer.status]
+                if informal
+                else timer.status
+            )
             return (
                 ("타이머 중지" if kind == "timer_stop" else "타이머 초기화")
-                + f"\n현재: {timer.status} · {PHASE_LABELS[timer.phase]}\n"
-                "진행한 공부 시간은 보존합니다. "
-                "기록 끄기로 시작한 세션은 저장하지 않습니다."
+                + f"\n현재: {status_label} · {PHASE_LABELS[timer.phase]}\n"
                 + (
-                    "\n완료 회차를 0으로 되돌립니다. 이전 공부 기록은 지우지 않습니다."
+                    "진행한 공부 시간은 보존. 기록 끄기 세션은 저장 제외."
+                    if informal
+                    else "진행한 공부 시간은 보존합니다. "
+                    "기록 끄기로 시작한 세션은 저장하지 않습니다."
+                )
+                + (
+                    (
+                        "\n완료 회차: 0으로 초기화. 이전 공부 기록은 유지."
+                        if informal
+                        else "\n완료 회차를 0으로 되돌립니다. 이전 공부 기록은 지우지 않습니다."
+                    )
                     if kind == "timer_reset"
                     else ""
                 )
@@ -137,7 +157,12 @@ class CommandExecutor:
                 summary = describe(self.planning.draft(target, "all"))
             return (
                 f"변경 전\n{summary}\n변경 후\n{describe(changed)}\n"
-                f"{category} · {SCOPE_LABELS[scope]}\n할 일의 기존 마감 시각은 유지합니다."
+                f"{category} · {SCOPE_LABELS[scope]}\n"
+                + (
+                    "할 일의 기존 마감 시각은 유지."
+                    if informal
+                    else "할 일의 기존 마감 시각은 유지합니다."
+                )
             )
         action = {"delete": "삭제", "complete": "완료 처리", "uncomplete": "완료 취소"}[kind]
         return f"{action}할 내용\n{summary}\n{category} · {SCOPE_LABELS[scope]}"

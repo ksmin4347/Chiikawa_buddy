@@ -17,6 +17,19 @@ HELP = (
     "• 캘린더 열어줘 / 설정 열어줘 / 내 상태 알려줘\n"
     "한 번에 한 명령만 처리해요. 할 일·일정 변경은 확인 후 저장해요."
 )
+SMALL_TALK = {
+    "오늘 공부하기 싫어": "reluctant",
+    "공부하기 싫어": "reluctant",
+    "나 오늘 시험 잘 봤어": "celebrate",
+    "오늘 시험 잘 봤어": "celebrate",
+    "오늘 계획 다 못 지켰어": "unfinished",
+    "나 오늘 계획 다 못 지켰어": "unfinished",
+    "나 좀 응원해 줘": "encourage",
+    "응원해 줘": "encourage",
+    "응원해줘": "encourage",
+    "고마워": "thanks",
+    "고마워요": "thanks",
+}
 DAY = r"오늘|내일|모레|\d{4}-\d{2}-\d{2}"
 
 
@@ -73,6 +86,9 @@ def _time_prefix(text: str) -> tuple[time | None, time | None, bool, str]:
 
 def parse(text: str, today: date) -> Intent:
     text = validate_input(text)
+    small_talk = SMALL_TALK.get(text.rstrip("!.?~"))
+    if small_talk:
+        return Intent("smalltalk", {"event": small_talk})
     if text in ("안녕", "안녕하세요", "안녕!", "도움말", "명령어"):
         return Intent("help")
     if text in ("캘린더 열어줘", "캘린더", "설정 열어줘", "설정"):

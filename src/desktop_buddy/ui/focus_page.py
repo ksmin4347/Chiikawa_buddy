@@ -79,6 +79,16 @@ class FocusPage(QScrollArea):
         self.kind.currentIndexChanged.connect(self.default_minutes)
         form.addRow("종류", self.kind)
         form.addRow("이번 시간", self.minutes)
+        self.presets = []
+        preset_row = QHBoxLayout()
+        for minutes in (15, 25, 30, 60):
+            preset = button(
+                f"{minutes}분", lambda _checked=False, value=minutes: self.minutes.setValue(value)
+            )
+            preset.setAccessibleName(f"이번 타이머 {minutes}분 선택")
+            self.presets.append(preset)
+            preset_row.addWidget(preset)
+        form.addRow("빠른 시간 선택", preset_row)
         self.task_date = QDateEdit(QDate(planning.today()))
         self.task_date.setCalendarPopup(True)
         self.task_date.setDisplayFormat("yyyy-MM-dd")
@@ -125,6 +135,13 @@ class FocusPage(QScrollArea):
             lambda: settings.update(mini_timer_mode=self.mini_mode.currentData())
         )
         form.addRow("캐릭터 옆 작은 타이머", self.mini_mode)
+        self.mini_style = QComboBox()
+        self.mini_style.addItem("숫자", "pill")
+        self.mini_style.addItem("원형 진행", "ring")
+        self.mini_style.currentIndexChanged.connect(
+            lambda: settings.update(mini_timer_style=self.mini_style.currentData())
+        )
+        form.addRow("작은 타이머 모양", self.mini_style)
         content.addLayout(form)
         self.auto_next = QCheckBox("완료하면 다음 집중·휴식을 자동 시작")
         self.auto_next.toggled.connect(self.set_auto)
@@ -200,6 +217,7 @@ class FocusPage(QScrollArea):
             self.end_notice,
             self.quiet,
             self.mini_mode,
+            self.mini_style,
         ]
         blockers = [QSignalBlocker(widget) for widget in widgets]
         for key, spin in self.config_spins.items():
@@ -208,6 +226,7 @@ class FocusPage(QScrollArea):
         self.end_notice.setChecked(current.timer_notifications)
         self.quiet.setChecked(current.focus_quiet)
         self.mini_mode.setCurrentIndex(self.mini_mode.findData(current.mini_timer_mode))
+        self.mini_style.setCurrentIndex(self.mini_style.findData(current.mini_timer_style))
         del blockers
         defaults = {
             "focus": current.focus_minutes,
@@ -284,6 +303,8 @@ class FocusPage(QScrollArea):
             text = f"완료했어요! 다음은 {PHASE_NAMES[snapshot.next_phase]}예요."
         self.reason.setText(text)
         self.start_button.setEnabled(not active)
+        for preset in self.presets:
+            preset.setEnabled(not active)
         self.pause_button.setVisible(snapshot.status == "running")
         self.resume_button.setVisible(snapshot.status == "paused")
         self.stop_button.setEnabled(active or snapshot.status == "ready")

@@ -21,11 +21,15 @@ class PetWindow(QWidget):
     geometry_changed = Signal()
     hover_changed = Signal(bool)
     timer_requested = Signal()
+    character_requested = Signal()
+    quick_focus_requested = Signal(int)
+    timer_control_requested = Signal(str)
 
     def __init__(self, animation: AnimationState, settings: Settings):
         flags = Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
         super().__init__(None, flags)
         self.allow_close = False
+        self.timer_status = lambda: "idle"
         self.speech_guard = lambda **kwargs: True
         self.setWindowTitle(f"{APP_NAME} · 캐릭터")
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -68,26 +72,7 @@ class PetWindow(QWidget):
         self.setFixedSize(settings.size, settings.size)
         if self._scaled_size != settings.size:
             self._scaled_size = settings.size
-            self._frames = {
-                name: [
-                    frame.scaled(
-                        self.size(),
-                        Qt.AspectRatioMode.KeepAspectRatio,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                    for frame in clip.frames
-                ]
-                for name, clip in self.animation.clips.items()
-            }
-            # Cache each state's silhouette, excluding invisible reaction decorations at idle.
-            for name, frames in self._frames.items():
-                mask = QRegion()
-                for frame in frames:
-                    alpha = frame.toImage().createAlphaMask(
-                        Qt.ImageConversionFlag.ThresholdAlphaDither
-                    )
-                    mask = mask.united(QRegion(QBitmap.fromImage(alpha)))
-                self._masks[name] = mask
+            self._frames, self._masks = self.prepare_pack(self.animation.clips)
             self.setMask(self._masks[self.animation.state])
         if not settings.bubbles_enabled:
             self.bubble.hide()
@@ -97,6 +82,36 @@ class PetWindow(QWidget):
         self.update()
         self.geometry_changed.emit()
 
+    def prepare_pack(self, clips):
+        frames = {
+            name: [
+                frame.scaled(
+                    self.size(),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+                for frame in clip.frames
+            ]
+            for name, clip in clips.items()
+        }
+        if any(image.isNull() for images in frames.values() for image in images):
+            raise ValueError("캐릭터 표시 자료를 준비하지 못했어요.")
+        masks = {}
+        for name, images in frames.items():
+            mask = QRegion()
+            for frame in images:
+                alpha = frame.toImage().createAlphaMask(Qt.ImageConversionFlag.ThresholdAlphaDither)
+                mask = mask.united(QRegion(QBitmap.fromImage(alpha)))
+            masks[name] = mask
+        return frames, masks
+
+    def activate_pack(self, clips, prepared):
+        self.animation_timer.stop()
+        self.bubble.hide()
+        self._frames, self._masks = prepared
+        self._scaled_size = self.width()
+        self.animation.replace_clips(clips)
+
     def _update_timer(self) -> None:
         if (
             self.isVisible()
@@ -104,7 +119,7 @@ class PetWindow(QWidget):
             and (len(self.animation.clip.frames) > 1 or not self.animation.clip.loop)
         ):
             self.animation_timer.start(
-                max(33, round(100000 / (self.animation.clip.fps * self.settings.animation_speed)))
+                max(33, round(self.animation.frame_delay_ms * 100 / self.settings.animation_speed))
             )
         else:
             self.animation_timer.stop()
@@ -116,6 +131,7 @@ class PetWindow(QWidget):
 
     def _advance(self) -> None:
         self.animation.advance()
+        self._update_timer()
         self.update()
 
     def react(self) -> None:
@@ -211,18 +227,41 @@ class PetWindow(QWidget):
             self.manage_requested.emit()
             event.accept()
 
-    def contextMenuEvent(self, event) -> None:
-        self._click_timer.stop()
+    def create_context_menu(self):
         menu = QMenu(self)
         menu.addAction("관리창 열기", self.manage_requested.emit)
+        menu.addAction("캐릭터 선택", self.character_requested.emit)
         menu.addAction("집중 타이머", self.timer_requested.emit)
+        quick = menu.addMenu("집중 바로 시작")
+        active = self.timer_status() in ("running", "paused")
+        for minutes in (15, 25, 30, 60):
+            action = quick.addAction(
+                f"{minutes}분",
+                lambda _checked=False, value=minutes: self.quick_focus_requested.emit(value),
+            )
+            action.setEnabled(not active)
+        if active:
+            command = "pause" if self.timer_status() == "running" else "resume"
+            menu.addAction(
+                "일시정지" if command == "pause" else "재개",
+                lambda: self.timer_control_requested.emit(command),
+            )
+            menu.addAction("타이머 중지", lambda: self.timer_control_requested.emit("stop"))
         menu.addAction("인사하기", self.react)
         menu.addSeparator()
         menu.addAction("오른쪽 아래로 이동", self.reset_requested.emit)
         menu.addAction("캐릭터 숨기기", self.hide_requested.emit)
         menu.addSeparator()
         menu.addAction("프로그램 종료", self.quit_requested.emit)
-        menu.exec(event.globalPos())
+        return menu
+
+    def contextMenuEvent(self, event) -> None:
+        self._click_timer.stop()
+        menu = self.create_context_menu()
+        try:
+            menu.exec(event.globalPos())
+        finally:
+            menu.deleteLater()
 
     def safe_position(self, x: int, y: int) -> tuple[int, int]:
         screens = [

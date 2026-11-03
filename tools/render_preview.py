@@ -38,7 +38,7 @@ for font_file in ["malgun.ttf", "malgunbd.ttf"]:
 app.setFont(QFont("Malgun Gothic", 10))
 app.setStyle("Fusion")
 app.setQuitOnLastWindowClosed(False)
-directory = ROOT / ".qa" / "preview-data-voices" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "preview-data-characters" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -84,7 +84,9 @@ if not planning.repository.records("task") and not planning.repository.records("
             category_id=categories[1].id,
         )
     )
-controller = BuddyApplication(app, store, guard, Path("%LOCALAPPDATA%") / "DesktopBuddy")
+controller = BuddyApplication(
+    app, store, guard, Path("%LOCALAPPDATA%") / "DesktopBuddy", show_onboarding=False
+)
 
 
 class PreviewClock:
@@ -229,5 +231,36 @@ controller.chat.submit("할 일 추가: 25분 집중 준비")
 controller.manager.resize(720, 560)
 settle()
 assert controller.manager.grab().save(str(ROOT / ".qa" / "voice-small.png"))
+controller.settings.update(theme="light", mini_timer_style="ring", mini_timer_mode="always")
+controller.manager.resize(1120, 820)
+controller.manager.open_page(controller.manager.CHARACTER_PAGE)
+settle()
+assert controller.manager.grab().save(str(output / "characters.png"))
+page = controller.manager.character_page
+page.state.setCurrentIndex(page.state.findData("focus"))
+settle()
+assert controller.manager.grab().save(str(output / "characters-focus.png"))
+controller.settings.update(theme="dark")
+controller.manager.resize(720, 560)
+settle()
+assert controller.manager.grab().save(str(ROOT / ".qa" / "characters-small-dark.png"))
+controller.settings.update(theme="light")
+controller.manager.resize(1120, 820)
+controller.characters.select("usagi")
+controller.focus_timer.start(minutes=25)
+controller.find_pet()
+settle()
+assert controller.pet.grab().save(str(output / "pet-usagi.png"))
+assert controller.mini_timer.grab().save(str(output / "timer-ring.png"))
+controller.manager.open_page(controller.manager.FOCUS_PAGE)
+controller.manager.focus_page.verticalScrollBar().setValue(0)
+settle()
+assert controller.manager.grab().save(str(output / "focus.png"))
+controller.focus_timer.stop()
+controller.settings.update(character_selection_done=False)
+controller._show_character_picker()
+settle()
+assert controller.picker.grab().save(str(output / "first-choice.png"))
+controller.picker.page.buttons["chiikawa"].click()
 controller.shutdown()
 print("Rendered home, planning, calendar views, settings, and dark views from QA fixtures.")

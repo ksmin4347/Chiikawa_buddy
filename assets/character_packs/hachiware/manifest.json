@@ -1,0 +1,215 @@
+{
+  "id": "hachiware",
+  "name": "하치와레",
+  "version": 1,
+  "atlas": {
+    "path": "atlas.png",
+    "cell_width": 192,
+    "cell_height": 208
+  },
+  "states": {
+    "idle": {
+      "frames": [
+        {
+          "row": 0,
+          "column": 0
+        },
+        {
+          "row": 0,
+          "column": 1
+        },
+        {
+          "row": 0,
+          "column": 2
+        },
+        {
+          "row": 0,
+          "column": 3
+        },
+        {
+          "row": 0,
+          "column": 4
+        },
+        {
+          "row": 0,
+          "column": 5
+        }
+      ],
+      "durations_ms": [
+        280,
+        110,
+        110,
+        140,
+        140,
+        320
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "happy": {
+      "frames": [
+        {
+          "row": 3,
+          "column": 0
+        },
+        {
+          "row": 3,
+          "column": 1
+        },
+        {
+          "row": 3,
+          "column": 2
+        },
+        {
+          "row": 3,
+          "column": 3
+        }
+      ],
+      "durations_ms": [
+        140,
+        140,
+        140,
+        280
+      ],
+      "fps": 6,
+      "loop": false
+    },
+    "complete": {
+      "frames": [
+        {
+          "row": 4,
+          "column": 0
+        },
+        {
+          "row": 4,
+          "column": 1
+        },
+        {
+          "row": 4,
+          "column": 2
+        },
+        {
+          "row": 4,
+          "column": 3
+        },
+        {
+          "row": 4,
+          "column": 4
+        }
+      ],
+      "durations_ms": [
+        140,
+        140,
+        140,
+        140,
+        280
+      ],
+      "fps": 6,
+      "loop": false
+    },
+    "sad": {
+      "frames": [
+        {
+          "row": 5,
+          "column": 0
+        },
+        {
+          "row": 5,
+          "column": 1
+        },
+        {
+          "row": 5,
+          "column": 2
+        },
+        {
+          "row": 5,
+          "column": 3
+        },
+        {
+          "row": 5,
+          "column": 4
+        },
+        {
+          "row": 5,
+          "column": 5
+        },
+        {
+          "row": 5,
+          "column": 6
+        },
+        {
+          "row": 5,
+          "column": 7
+        }
+      ],
+      "durations_ms": [
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        140,
+        240
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "break": {
+      "frames": [
+        {
+          "row": 6,
+          "column": 0
+        },
+        {
+          "row": 6,
+          "column": 1
+        },
+        {
+          "row": 6,
+          "column": 2
+        },
+        {
+          "row": 6,
+          "column": 3
+        },
+        {
+          "row": 6,
+          "column": 4
+        },
+        {
+          "row": 6,
+          "column": 5
+        }
+      ],
+      "durations_ms": [
+        150,
+        150,
+        150,
+        150,
+        150,
+        260
+      ],
+      "fps": 6,
+      "loop": true
+    },
+    "focus": {
+      "frames": [
+        "focus_001.png",
+        "focus_002.png",
+        "focus_003.png"
+      ],
+      "durations_ms": [
+        340,
+        340,
+        340
+      ],
+      "fps": 3,
+      "loop": true
+    }
+  },
+  "aliases": {
+    "worried": "idle",
+    "sleep": "idle"
+  }
+}

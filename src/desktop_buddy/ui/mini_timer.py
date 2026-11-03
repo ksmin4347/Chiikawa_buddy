@@ -1,7 +1,7 @@
 import math
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import QLabel
 
 PHASE_NAMES = {"focus": "집중", "short_break": "짧은 휴식", "long_break": "긴 휴식"}
@@ -31,6 +31,8 @@ class MiniTimer(QLabel):
         self.hovered = False
         self.force_visible = False
         self.suppressed = False
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self._style = None
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setWindowTitle("Desktop Buddy · 작은 타이머")
@@ -79,7 +81,21 @@ class MiniTimer(QLabel):
         else:
             text = f"{PHASE_NAMES[snapshot.phase]}  {countdown(snapshot.remaining_seconds)}{suffix}"
         self.setText(text)
-        self.adjustSize()
+        if self._style != current.mini_timer_style:
+            self._style = current.mini_timer_style
+            self.setMinimumSize(0, 0)
+            self.setMaximumSize(16777215, 16777215)
+            if self._style == "ring":
+                self.setStyleSheet("background:transparent;padding:0;border:0;")
+                self.setFixedSize(124, 124)
+            else:
+                self.setStyleSheet(
+                    "background:#264c3b;color:white;border-radius:12px;padding:8px 14px;"
+                    "font-size:14px;font-weight:600;"
+                )
+        if self._style != "ring":
+            self.adjustSize()
+        self.update()
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, current.always_on_top)
         geometry = self.pet.geometry()
         screen = QGuiApplication.screenAt(geometry.center()) or QGuiApplication.primaryScreen()
@@ -94,3 +110,41 @@ class MiniTimer(QLabel):
         y = min(max(area.top(), y), max(area.top(), area.bottom() - self.height() + 1))
         self.move(x, y)
         self.show()
+
+    def paintEvent(self, event):
+        if self._style != "ring":
+            super().paintEvent(event)
+            return
+        snapshot = self.timer.snapshot
+        fraction = max(0.0, min(1.0, snapshot.elapsed_seconds / max(1, snapshot.planned_seconds)))
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#faf9f6"))
+        painter.drawEllipse(QRectF(4, 4, 116, 116))
+        painter.setPen(QPen(QColor("#dce3d9"), 6))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(QRectF(8, 8, 108, 108))
+        color = "#4e8061" if fraction < 0.65 else "#c7893a" if fraction < 0.85 else "#bf625b"
+        painter.setPen(QPen(QColor(color if snapshot.status != "paused" else "#76847b"), 6))
+        painter.drawArc(QRectF(8, 8, 108, 108), 90 * 16, -round(fraction * 360 * 16))
+        painter.setPen(QColor("#293e34"))
+        painter.setFont(QFont("Malgun Gothic", 9))
+        phase = (
+            "완료"
+            if snapshot.status == "ready"
+            else "준비"
+            if snapshot.status == "idle"
+            else PHASE_NAMES[snapshot.phase]
+        )
+        painter.drawText(QRectF(16, 26, 92, 22), Qt.AlignmentFlag.AlignCenter, phase)
+        painter.setFont(QFont("Malgun Gothic", 15, QFont.Weight.Bold))
+        painter.drawText(
+            QRectF(12, 47, 100, 30),
+            Qt.AlignmentFlag.AlignCenter,
+            countdown(snapshot.remaining_seconds),
+        )
+        if snapshot.status == "paused":
+            painter.setFont(QFont("Malgun Gothic", 9))
+            painter.drawText(QRectF(16, 78, 92, 20), Qt.AlignmentFlag.AlignCenter, "일시정지")
+        painter.end()

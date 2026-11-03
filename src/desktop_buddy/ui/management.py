@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from desktop_buddy.core.metadata import APP_NAME, VERSION
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.calendar_page import CalendarPage
+from desktop_buddy.ui.character_page import CharacterPage
 from desktop_buddy.ui.chat_page import ChatPage
 from desktop_buddy.ui.common import button, card, label
 from desktop_buddy.ui.companion_page import CompanionPage
@@ -38,7 +39,8 @@ class ManagementWindow(QMainWindow):
     STATISTICS_PAGE = 4
     COMPANION_PAGE = 5
     CHAT_PAGE = 6
-    SETTINGS_PAGE = 7
+    CHARACTER_PAGE = 7
+    SETTINGS_PAGE = 8
     briefing_requested = Signal()
     greet_requested = Signal()
     find_requested = Signal()
@@ -57,6 +59,7 @@ class ManagementWindow(QMainWindow):
         statistics,
         companion,
         chat,
+        characters,
     ):
         super().__init__()
         self.service = service
@@ -77,7 +80,7 @@ class ManagementWindow(QMainWindow):
         side.setFixedWidth(184)
         nav_layout = QVBoxLayout(side)
         nav_layout.setContentsMargins(18, 28, 18, 22)
-        logo = QLabel()
+        self.logo = logo = QLabel()
         logo.setPixmap(
             preview.scaled(
                 68,
@@ -111,6 +114,7 @@ class ManagementWindow(QMainWindow):
                 "공부 통계",
                 "생활·브리핑",
                 "채팅",
+                "캐릭터",
                 "설정",
             ]
         ):
@@ -142,6 +146,8 @@ class ManagementWindow(QMainWindow):
         self.pages.addWidget(self.companion_page)
         self.chat_page = ChatPage(chat)
         self.pages.addWidget(self.chat_page)
+        self.character_page = CharacterPage(characters)
+        self.pages.addWidget(self.character_page)
         self._make_settings(data_dir)
         planning.changed.connect(self.refresh_planning)
         self.refresh_planning()
@@ -153,6 +159,18 @@ class ManagementWindow(QMainWindow):
         self.clock_timer.timeout.connect(self.refresh_clock)
         self.clock_timer.start()
         timer.records_changed.connect(self.refresh_clock)
+
+    def set_character_preview(self, preview):
+        for target, size in ((self.logo, 68), (self.hero_picture, 160)):
+            target.setPixmap(
+                preview.scaled(
+                    size,
+                    size,
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
+            )
+        self.setWindowIcon(QIcon(preview))
 
     def _page(self) -> QVBoxLayout:
         area = QScrollArea()
@@ -180,7 +198,7 @@ class ManagementWindow(QMainWindow):
         hero.setObjectName("hero")
         hero_layout = QHBoxLayout(hero)
         hero_layout.setContentsMargins(20, 20, 24, 20)
-        picture = QLabel()
+        self.hero_picture = picture = QLabel()
         picture.setPixmap(
             preview.scaled(
                 160,
@@ -190,7 +208,7 @@ class ManagementWindow(QMainWindow):
             )
         )
         picture.setFixedSize(160, 160)
-        picture.setAccessibleName("오리지널 기본 캐릭터 모루")
+        picture.setAccessibleName("선택한 캐릭터")
         hero_layout.addWidget(picture)
         words = QVBoxLayout()
         words.addWidget(label("HELLO, MY LITTLE FRIEND", "eyebrow"))

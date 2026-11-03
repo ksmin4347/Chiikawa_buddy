@@ -18,7 +18,7 @@ def test_chat_commands_choice_confirmation_navigation(chat_controller, qapp):
     manager = buddy.manager
     manager.open_page(manager.CHAT_PAGE)
     page = manager.chat_page
-    assert page.isVisible() and manager.pages.count() == 8
+    assert page.isVisible() and manager.pages.count() == 9
     send(page, "내일 오후 3시에 알고리즘 공부 추가해줘")
     assert page.choices.isVisible() and page.choices.count() == 2
     assert not buddy.planning.repository.records("task")

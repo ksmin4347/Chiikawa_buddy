@@ -4,10 +4,10 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from desktop_buddy.characters.animation import AnimationState, load_clips
+from desktop_buddy.characters.animation import AnimationState
 from desktop_buddy.core.metadata import APP_NAME
-from desktop_buddy.core.paths import asset_directory
 from desktop_buddy.services.briefing_service import BriefingService
+from desktop_buddy.services.character_service import CharacterService
 from desktop_buddy.services.chat_service import ChatService
 from desktop_buddy.services.companion_service import CompanionService
 from desktop_buddy.services.focus_timer import FocusTimerService
@@ -17,6 +17,7 @@ from desktop_buddy.services.power_events import PowerEventFilter
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.services.study_statistics import StudyStatistics
 from desktop_buddy.ui.briefing_card import BriefingCard
+from desktop_buddy.ui.character_page import CharacterPicker
 from desktop_buddy.ui.companion_presenter import CompanionPresenter
 from desktop_buddy.ui.management import ManagementWindow
 from desktop_buddy.ui.mini_timer import MiniTimer
@@ -25,7 +26,7 @@ from desktop_buddy.ui.theme import apply_theme
 
 
 class BuddyApplication:
-    def __init__(self, app: QApplication, store, guard, data_dir):
+    def __init__(self, app: QApplication, store, guard, data_dir, *, show_onboarding: bool = True):
         self.app = app
         self.store = store
         self.guard = guard
@@ -33,18 +34,28 @@ class BuddyApplication:
         self._theme = None
         self._position_ready = False
         self.settings = SettingsService(store)
+        self.characters = CharacterService(self.settings)
+        self.picker = None
         self.planning = PlanningService(store)
         self.focus_timer = FocusTimerService(store, self.settings, self.planning)
         self.companion = CompanionService(store, self.settings, self.focus_timer)
         self.briefing = BriefingService(self.planning, self.settings, self.companion)
         self.statistics = StudyStatistics(store, self.planning, self.focus_timer)
         self.chat = ChatService(
-            store, self.settings, self.planning, self.focus_timer, self.statistics, self.companion
+            store,
+            self.settings,
+            self.planning,
+            self.focus_timer,
+            self.statistics,
+            self.companion,
+            self.characters,
         )
         self.power_filter = PowerEventFilter(self.focus_timer)
         app.installNativeEventFilter(self.power_filter)
-        self.animation = AnimationState(load_clips(asset_directory() / "default_character"))
+        self.animation = AnimationState(self.characters.clips)
         self.pet = PetWindow(self.animation, self.settings.current)
+        self.characters.prepare = self.pet.prepare_pack
+        self.characters.changed.connect(self._activate_character)
         icon = QIcon(self.animation.frame)
         app.setWindowIcon(icon)
         self.manager = ManagementWindow(
@@ -56,12 +67,21 @@ class BuddyApplication:
             self.statistics,
             self.companion,
             self.chat,
+            self.characters,
         )
         self.chat.navigation_requested.connect(
             lambda page: self.manager.open_page(
                 self.manager.SETTINGS_PAGE if page == "settings" else 2
             )
         )
+        self.pet.timer_status = lambda: self.focus_timer.status
+        self.pet.character_requested.connect(
+            lambda: self.manager.open_page(self.manager.CHARACTER_PAGE)
+        )
+        self.pet.quick_focus_requested.connect(
+            lambda minutes: self._run_timer_action(lambda: self.focus_timer.start(minutes=minutes))
+        )
+        self.pet.timer_control_requested.connect(lambda command: self._run_timer_control(command))
         self.mini_timer = MiniTimer(self.pet, self.focus_timer, self.settings)
         self.briefing_card = BriefingCard()
         self.briefing_card.planning_requested.connect(lambda: self.manager.open_page(1))
@@ -165,6 +185,41 @@ class BuddyApplication:
         self.companion.start()
         self.focus_timer.start_clock()
         self.briefing.start()
+        if self.characters.warning:
+            self.manager.statusBar().showMessage(self.characters.warning, 15000)
+        if show_onboarding and not self.settings.current.character_selection_done:
+            QTimer.singleShot(0, self.manager, self._show_character_picker)
+
+    def _run_timer_control(self, command):
+        action = {
+            "pause": self.focus_timer.pause,
+            "resume": self.focus_timer.resume,
+            "stop": self.focus_timer.stop,
+        }.get(command)
+        if action is not None:
+            self._run_timer_action(action)
+
+    def _run_timer_action(self, action):
+        self.manager.focus_page.run(action)
+        if self.manager.focus_page.error_label.text():
+            self.manager.open_page(self.manager.FOCUS_PAGE)
+
+    def _show_character_picker(self):
+        if self._closed or self.settings.current.character_selection_done:
+            return
+        self.picker = CharacterPicker(self.characters, self.manager)
+        self.picker.show()
+
+    def _activate_character(self, clips, prepared):
+        self.pet.activate_pack(clips, prepared)
+        icon = QIcon(clips["idle"].frames[0])
+        self.app.setWindowIcon(icon)
+        if hasattr(self, "manager"):
+            self.manager.set_character_preview(clips["idle"].frames[0])
+        if hasattr(self, "tray"):
+            self.tray.setIcon(icon)
+        if hasattr(self, "presentation"):
+            self.presentation.refresh()
 
     def _routine_changed(self, snapshot) -> None:
         if snapshot.fullscreen or (snapshot.quiet and not self._briefing_manual):
@@ -319,6 +374,8 @@ class BuddyApplication:
             return
         self._closed = True
         self.chat.pending = None
+        if self.picker is not None:
+            self.picker.close()
         self.notifications.stop()
         self.companion.stop()
         self.briefing.stop()
@@ -335,6 +392,15 @@ class BuddyApplication:
         self.manager.statistics_page.refresh_timer.stop()
         self.manager.clock_timer.stop()
         self.app.removeNativeEventFilter(self.power_filter)
+        for signal, callback in (
+            (self.app.aboutToQuit, self.shutdown),
+            (self.app.screenAdded, self._screen_added),
+            (self.app.screenRemoved, self.pet.ensure_visible_position),
+        ):
+            try:
+                signal.disconnect(callback)
+            except (RuntimeError, TypeError):
+                pass
         self.settings.update(x=self.pet.x(), y=self.pet.y())
         self.pet.hide()
         self.mini_timer.hide()

@@ -21,10 +21,13 @@ class ChatService(QObject):
     changed = Signal()
     navigation_requested = Signal(str)
 
-    def __init__(self, store, settings, planning, timer, statistics, companion=None):
+    def __init__(
+        self, store, settings, planning, timer, statistics, companion=None, characters=None
+    ):
         super().__init__()
         self.store, self.settings, self.planning = store, settings, planning
         self.timer, self.statistics, self.companion = timer, statistics, companion
+        self.characters = characters
         self.repository = ChatRepository(store)
         self.executor = CommandExecutor(store, planning, timer)
         self.voice = DialogueVoice(lambda: self.character_id)
@@ -51,7 +54,12 @@ class ChatService(QObject):
     def set_character(self, character_id: str) -> None:
         if character_id not in PROFILE_IDS:
             raise ValueError("대화 캐릭터를 다시 선택해 주세요.")
-        if not self.settings.update(chat_character_id=character_id):
+        saved = (
+            self.characters.select(character_id)
+            if self.characters is not None
+            else self.settings.update(chat_character_id=character_id)
+        )
+        if not saved:
             raise OSError("대화 캐릭터를 저장하지 못했어요.")
 
     def message_speakers(self, message_ids: list[int]) -> dict[int, str]:

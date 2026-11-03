@@ -7,7 +7,12 @@ a = Analysis(
     [str(root / 'desktop_buddy_entry.py')],
     pathex=[str(root / 'src')],
     datas=[(str(root / 'assets' / 'default_character'), 'assets/default_character'),
-           (str(root / 'assets' / 'icons'), 'assets/icons')] + collect_data_files('tzdata'),
+           (str(root / 'assets' / 'icons'), 'assets/icons'),
+           *[(str(root / 'assets' / 'character_packs' / key / name),
+              f'assets/character_packs/{key}')
+             for key in ('chiikawa', 'hachiware', 'usagi')
+             for name in ('manifest.json', 'atlas.png', 'focus_001.png',
+                          'focus_002.png', 'focus_003.png')]] + collect_data_files('tzdata'),
     hiddenimports=[],
     excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.QtQml', 'PySide6.QtQuick',

@@ -7,6 +7,9 @@ from desktop_buddy.core.metadata import DEFAULT_CHARACTER_NAME
 
 @dataclass(frozen=True)
 class Settings:
+    character_id: str = "moru"
+    character_selection_done: bool = False
+    mini_timer_style: str = "pill"
     chat_character_id: str = "moru"
     chat_history_enabled: bool = True
     character_name: str = DEFAULT_CHARACTER_NAME
@@ -56,7 +59,15 @@ class Settings:
         clean = {}
         for field in fields(cls):
             value = values.get(field.name, getattr(defaults, field.name))
-            if field.name == "chat_character_id":
+            if field.name == "character_selection_done":
+                clean[field.name] = value if type(value) is bool else False
+                if field.name not in values:
+                    clean[field.name] = bool(values)
+            elif field.name == "mini_timer_style":
+                clean[field.name] = value if value in ("pill", "ring") else "pill"
+            elif field.name in ("chat_character_id", "character_id"):
+                if field.name == "character_id" and field.name not in values:
+                    value = values.get("chat_character_id", "moru")
                 clean[field.name] = value if value in PROFILE_IDS else "moru"
             elif field.name in {"emotion_gap_days", "valid_focus_minutes", "emotion_message_days"}:
                 lower, upper = {

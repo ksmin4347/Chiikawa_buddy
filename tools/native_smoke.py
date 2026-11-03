@@ -19,12 +19,12 @@ from desktop_buddy.services.single_instance import SingleInstance
 app = QApplication([])
 app.setQuitOnLastWindowClosed(False)
 app.setStyle("Fusion")
-directory = ROOT / ".qa" / "native-smoke-voices" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "native-smoke-characters" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
 store = Store(directory / "buddy.db")
-controller = BuddyApplication(app, store, guard, directory)
+controller = BuddyApplication(app, store, guard, directory, show_onboarding=False)
 result = {"platform": app.platformName(), "screens": len(app.screens())}
 
 
@@ -180,6 +180,28 @@ def verify():
         result["usagi_click_balloon"] = controller.pet.bubble.text().endswith(")")
         assert result["usagi_click_balloon"]
         assert controller.manager.grab().save(str(ROOT / ".qa" / "native-voices.png"))
+        session_id = controller.focus_timer.session_id
+        result["character_picture_selected"] = controller.characters.active_id == "usagi"
+        result["character_labels_match"] = chat.subtitle.text().startswith(
+            "그림: 우사기 · 말투: 우사기"
+        )
+        controller.settings.update(mini_timer_style="ring")
+        result["ring_timer_visible"] = (
+            controller.mini_timer.isVisible() and controller.mini_timer.width() == 124
+        )
+        result["selection_kept_running_session"] = controller.focus_timer.session_id == session_id
+        controller.manager.open_page(controller.manager.CHARACTER_PAGE)
+        app.processEvents()
+        assert all(
+            result[key]
+            for key in (
+                "character_picture_selected",
+                "character_labels_match",
+                "ring_timer_visible",
+                "selection_kept_running_session",
+            )
+        )
+        assert controller.manager.grab().save(str(ROOT / ".qa" / "native-characters.png"))
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
         result["error"] = repr(error)
@@ -204,7 +226,7 @@ result["companion_timer_stopped"] = not controller.companion.timer.isActive()
 result["briefing_timer_stopped"] = not controller.briefing.timer.isActive()
 result["notification_timer_stopped"] = not controller.notifications.timer.isActive()
 next_guard.close()
-(ROOT / ".qa" / "native-smoke-voices.json").write_text(
+(ROOT / ".qa" / "native-smoke-characters.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
 )
 print(json.dumps(result, ensure_ascii=False))

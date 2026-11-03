@@ -42,7 +42,7 @@ class ChatPage(QWidget):
         heading.addWidget(self.heading, 1)
         self.character = QComboBox()
         self.character.setAccessibleName("대화 캐릭터")
-        self.character.setToolTip("대화 말투를 선택해요. 화면 캐릭터 이미지는 모루를 유지해요.")
+        self.character.setToolTip("캐릭터 그림과 대화 말투를 함께 선택해요.")
         for item in PROFILES:
             self.character.addItem(item.name, item.id)
             self.character.setItemData(self.character.count() - 1, item.description, 3)
@@ -51,7 +51,8 @@ class ChatPage(QWidget):
         )
         heading.addWidget(self.character)
         body.addLayout(heading)
-        body.addWidget(label("오프라인 대화 · 화면 캐릭터: 모루 (이미지 연결 예정)", "muted"))
+        self.subtitle = label("오프라인 대화 · 선택한 친구와 함께해요.", "muted")
+        body.addWidget(self.subtitle)
         row = QHBoxLayout()
         self.sessions = QComboBox()
         self.sessions.setAccessibleName("보관한 대화 선택")
@@ -136,6 +137,8 @@ class ChatPage(QWidget):
         row.addWidget(self.send_button)
         body.addLayout(row)
         service.changed.connect(self.refresh)
+        if service.characters is not None:
+            service.characters.changed.connect(self.refresh)
         self.refresh()
 
     def _run(self, callback):
@@ -255,6 +258,11 @@ class ChatPage(QWidget):
         with QSignalBlocker(self.character):
             self.character.setCurrentIndex(self.character.findData(self.service.character_id))
         self.heading.setText(f"{self.service.voice.name}와 채팅")
+        if self.service.characters is not None:
+            active_name = profile(self.service.characters.active_id).name
+            self.subtitle.setText(
+                f"그림: {active_name} · 말투: {self.service.voice.name} · 오프라인 대화"
+            )
         with QSignalBlocker(self.history), QSignalBlocker(self.sessions):
             self.history.setChecked(self.service.history_enabled)
             self.sessions.clear()

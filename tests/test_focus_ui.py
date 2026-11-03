@@ -17,7 +17,7 @@ def controller(qapp, tmp_path):
     guard = SingleInstance(tmp_path)
     assert guard.acquire()
     store = Store(tmp_path / "buddy.db")
-    buddy = BuddyApplication(qapp, store, guard, tmp_path)
+    buddy = BuddyApplication(qapp, store, guard, tmp_path, show_onboarding=False)
     clock = Clock()
     buddy.focus_timer.clock = clock
     buddy.companion.clock = clock

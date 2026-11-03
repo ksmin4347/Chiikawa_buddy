@@ -2,6 +2,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
+from desktop_buddy.core.metadata import APP_NAME
 from desktop_buddy.ui.common import button, label
 
 
@@ -11,7 +12,7 @@ class BriefingCard(QFrame):
     def __init__(self):
         super().__init__(None, Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint)
         self.setObjectName("card")
-        self.setWindowTitle("Desktop Buddy · 오늘의 브리핑")
+        self.setWindowTitle(f"{APP_NAME} · 오늘의 브리핑")
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setMinimumWidth(300)
         self.resize(410, 360)

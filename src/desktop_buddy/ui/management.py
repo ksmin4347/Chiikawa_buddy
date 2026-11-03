@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_buddy.core.metadata import APP_NAME, VERSION
+from desktop_buddy.core.paths import asset_directory
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.calendar_page import CalendarPage
 from desktop_buddy.ui.character_page import CharacterPage
@@ -67,7 +68,7 @@ class ManagementWindow(QMainWindow):
         self.actions = PlanningActions(planning, self)
         self.allow_close = False
         self.setWindowTitle(f"{APP_NAME} · 관리창")
-        self.setWindowIcon(QIcon(preview))
+        self.setWindowIcon(QIcon(str(asset_directory() / "icons" / "buddy.ico")))
         self.resize(960, 760)
         self.setMinimumSize(720, 560)
         root = QWidget()
@@ -170,7 +171,6 @@ class ManagementWindow(QMainWindow):
                     Qt.TransformationMode.SmoothTransformation,
                 )
             )
-        self.setWindowIcon(QIcon(preview))
 
     def _page(self) -> QVBoxLayout:
         area = QScrollArea()

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from desktop_buddy.characters.animation import AnimationState
 from desktop_buddy.core.metadata import APP_NAME
+from desktop_buddy.core.paths import asset_directory
 from desktop_buddy.services.briefing_service import BriefingService
 from desktop_buddy.services.character_service import CharacterService
 from desktop_buddy.services.chat_service import ChatService
@@ -56,7 +57,7 @@ class BuddyApplication:
         self.pet = PetWindow(self.animation, self.settings.current)
         self.characters.prepare = self.pet.prepare_pack
         self.characters.changed.connect(self._activate_character)
-        icon = QIcon(self.animation.frame)
+        icon = QIcon(str(asset_directory() / "icons" / "buddy.ico"))
         app.setWindowIcon(icon)
         self.manager = ManagementWindow(
             self.settings,
@@ -212,12 +213,8 @@ class BuddyApplication:
 
     def _activate_character(self, clips, prepared):
         self.pet.activate_pack(clips, prepared)
-        icon = QIcon(clips["idle"].frames[0])
-        self.app.setWindowIcon(icon)
         if hasattr(self, "manager"):
             self.manager.set_character_preview(clips["idle"].frames[0])
-        if hasattr(self, "tray"):
-            self.tray.setIcon(icon)
         if hasattr(self, "presentation"):
             self.presentation.refresh()
 

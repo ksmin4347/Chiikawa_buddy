@@ -4,6 +4,8 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QPainter, QPen
 from PySide6.QtWidgets import QLabel
 
+from desktop_buddy.core.metadata import APP_NAME
+
 PHASE_NAMES = {"focus": "집중", "short_break": "짧은 휴식", "long_break": "긴 휴식"}
 
 
@@ -35,7 +37,7 @@ class MiniTimer(QLabel):
         self._style = None
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setWindowTitle("Desktop Buddy · 작은 타이머")
+        self.setWindowTitle(f"{APP_NAME} · 작은 타이머")
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet(
             "background:#264c3b;color:#ffffff;border-radius:12px;padding:8px 14px;"

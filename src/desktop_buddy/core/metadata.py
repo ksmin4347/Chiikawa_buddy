@@ -1,6 +1,6 @@
 from desktop_buddy import __version__
 
-APP_NAME = "Desktop Buddy"
+APP_NAME = "먼작귀"
 DATA_FOLDER = "DesktopBuddy"  # Stable across branding changes.
 DEFAULT_CHARACTER_NAME = "모루"
 VERSION = __version__

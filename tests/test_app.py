@@ -11,6 +11,11 @@ def test_controller_management_reuse_and_restart(qapp, tmp_path):
     store = Store(tmp_path / "buddy.db")
     controller = BuddyApplication(qapp, store, guard, tmp_path, show_onboarding=False)
     try:
+        assert controller.manager.windowTitle() == "먼작귀 · 관리창"
+        icon = controller.manager.windowIcon().pixmap(64, 64).toImage()
+        controller.characters.select("chiikawa")
+        assert controller.manager.windowIcon().pixmap(64, 64).toImage() == icon
+        assert controller.tray.icon().pixmap(64, 64).toImage() == icon
         area = qapp.primaryScreen().availableGeometry()
         assert controller.pet.x() >= area.x()
         assert controller.pet.y() > area.height() // 2
@@ -35,6 +40,30 @@ def test_controller_management_reuse_and_restart(qapp, tmp_path):
     assert reopened.load_settings().character_name == "토리"
     assert reopened.load_settings().x == 200
     reopened.close()
+
+
+def test_desktop_entry_launches_without_pythonpath_from_another_directory(tmp_path):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from desktop_buddy import __version__
+
+    entry = Path(__file__).resolve().parents[1] / "desktop_buddy_entry.py"
+    environment = os.environ.copy()
+    environment.pop("PYTHONPATH", None)
+    result = subprocess.run(
+        [sys.executable, str(entry), "--version"],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == __version__
 
 
 def test_single_instance_activation(qapp, tmp_path):

@@ -1,9 +1,11 @@
-"""Recreate the original Moru mascot. No downloaded or copyrighted source art."""
+"""Recreate Moru frames and package the app icon from the bundled character."""
 
 import json
 import math
 import os
 from pathlib import Path
+
+from generate_app_icon import save_icons
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtCore import QPointF, Qt
@@ -161,9 +163,7 @@ def main():
         ),
         encoding="utf-8",
     )
-    icon = draw(False, 0)
-    icon.save(str(ROOT / "assets" / "icons" / "buddy.png"))
-    icon.save(str(ROOT / "assets" / "icons" / "buddy.ico"))
+    save_icons(ROOT)
     print("Created 64 transparent PNG frames and app icons.")
     del app
 

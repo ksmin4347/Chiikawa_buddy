@@ -15,7 +15,7 @@ from desktop_buddy.services.single_instance import SingleInstance
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Desktop Buddy 데스크톱 캐릭터")
+    parser = argparse.ArgumentParser(description=f"{APP_NAME} 데스크톱 캐릭터")
     parser.add_argument("--data-dir", type=Path, help="개발/테스트용 별도 데이터 폴더")
     parser.add_argument("--version", action="version", version=VERSION)
     args = parser.parse_args(argv)

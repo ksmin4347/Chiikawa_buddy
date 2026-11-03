@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_buddy.characters.dialogue_profiles import PROFILES
+from desktop_buddy.core.metadata import APP_NAME
 from desktop_buddy.ui.common import button, card, label
 
 STATE_NAMES = {
@@ -118,7 +119,7 @@ class CharacterPage(QScrollArea):
 class CharacterPicker(QDialog):
     def __init__(self, characters, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Desktop Buddy · 첫 캐릭터 선택")
+        self.setWindowTitle(f"{APP_NAME} · 첫 캐릭터 선택")
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(640, 480)
         body = QVBoxLayout(self)

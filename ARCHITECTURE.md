@@ -1,4 +1,4 @@
-# 아키텍처 — 0.5.0
+# 아키텍처 — 0.5.1
 
 ## 연결 구조
 
@@ -24,7 +24,7 @@ flowchart LR
     Views --> Settings
     Views --> Planning
     Planning --> Repo[PlanningRepository]
-    Repo --> DB[SQLite 스키마 5]
+    Repo --> DB[SQLite 스키마 6]
     Settings --> DB
     Notifications --> Planning
     Notifications --> Repo
@@ -44,7 +44,7 @@ flowchart LR
 
 ## 저장소
 
-`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 5`.
+`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 6`.
 
 | 테이블 | 역할 |
 |---|---|
@@ -136,3 +136,13 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollback한다. 안쪽 실패를 잡았어도 rollback-only를 유지해 부분 커밋을 막는다. Planning/Focus는 이 경로를 공유하며 신호는 바깥 커밋 뒤 발행한다. Focus의 원자 상태 전환은 복구 훅으로 런타임·세션/구간 ID·연결 정보를 복원한다. 명령 변경·체크포인트·중복 방지 정보·성공 대화는 함께 저장한다. DB/보관 저장 또는 실제 커밋 실패 시 모두 롤백한다.
 
 보관 off는 새 메시지 DB 저장을 하지 않으며 RAM 200개로 제한한다. 다시 켜면 새 대화에 저장하고 RAM 기록을 소급 저장하지 않는다. 대화는 최신 50개 단위, 세션 선택은 최근 50개를 조회한다. 대화 삭제는 세션/메시지만 지우며 실행 중복 방지 정보와 계획·집중은 유지한다. 기존 버전은 backup API 원본 백업 후 스키마 5로 이전한다.
+
+## 대화 표현과 정보 분리 — 0.5.1
+
+`characters/dialogue_profiles.py`는 고정 ID·표시 이름·설명, `dialogue_voice.py`는 상황별 문구·감정별 감탄사·표현 선택을 소유한다. 템플릿은 캐릭터/상황별로 순환하고 데이터를 전역 치환하지 않는다. `DialogueVoice.render(event, details, moru_text)`는 사실/기술 문자열인 details를 그대로 결합한다. 기본 모루는 기존 출력과 설정을 보존한다. 응답 속도를 바꾸기 위한 인위적인 대기는 없다.
+
+`ChatService`는 기존 서비스 결과에서 실제 값과 제목 등을 추출하고, 커밋 전 성공 대화/화자 정보를 같은 트랜잭션에 저장한다. 커밋 뒤 신호로 선택이 바뀌어도 이미 작성한 응답의 화자 ID를 덮어쓰지 않는다. `chat_character_id`는 사진 팩과 분리된 대화 선택이며 향후 5B에서 동일한 고정 ID로 연결한다. 기존 메시지를 새 캐릭터로 다시 쓰지 않는다.
+
+스키마 6은 `chat_messages.character_id`와 `profile_version`을 기본 moru/1로 추가한다. 5→6 이전은 Store의 backup API·DDL 트랜잭션을 사용한다. 보관 off는 RAM 메시지와 화자 정보를 함께 최대 200개로 제한한다. 대화 보관 전환·말투 전환은 대기 카드를 취소하며 진행 타이머와 기존 기록은 보존한다.
+
+`ChatPage`는 대화 선택·과거 화자 표시를 담당하며 이미지는 모루임을 표시한다. `PetWindow`와 완료/공백 안내도 같은 설정을 읽는다. 종료된 앱의 초기 인사 콜백은 실행하지 않으며 Qt 컨텍스트가 제거되면 취소한다. 미래 AI 연결은 아직 구현하지 않았고 말투 규칙은 [대화 명세](docs/CHARACTER_DIALOGUE.md)에 기록했다.

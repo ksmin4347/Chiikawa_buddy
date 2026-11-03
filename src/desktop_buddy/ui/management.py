@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from desktop_buddy.core.metadata import APP_NAME, VERSION
 from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.calendar_page import CalendarPage
+from desktop_buddy.ui.chat_page import ChatPage
 from desktop_buddy.ui.common import button, card, label
 from desktop_buddy.ui.companion_page import CompanionPage
 from desktop_buddy.ui.focus_page import FocusPage
@@ -36,7 +37,8 @@ class ManagementWindow(QMainWindow):
     FOCUS_PAGE = 3
     STATISTICS_PAGE = 4
     COMPANION_PAGE = 5
-    SETTINGS_PAGE = 6
+    CHAT_PAGE = 6
+    SETTINGS_PAGE = 7
     briefing_requested = Signal()
     greet_requested = Signal()
     find_requested = Signal()
@@ -46,7 +48,15 @@ class ManagementWindow(QMainWindow):
     closing = Signal()
 
     def __init__(
-        self, service: SettingsService, preview, data_dir, planning, timer, statistics, companion
+        self,
+        service: SettingsService,
+        preview,
+        data_dir,
+        planning,
+        timer,
+        statistics,
+        companion,
+        chat,
     ):
         super().__init__()
         self.service = service
@@ -81,9 +91,28 @@ class ManagementWindow(QMainWindow):
         nav_layout.addWidget(label("나의 작은 데스크톱 친구", "muted"))
         nav_layout.addSpacing(28)
         self.pages = QStackedWidget()
+        nav_area = QScrollArea()
+        nav_area.setWidgetResizable(True)
+        nav_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        nav_area.setFrameShape(QFrame.Shape.NoFrame)
+        nav_body = QWidget()
+        buttons_layout = QVBoxLayout(nav_body)
+        buttons_layout.setContentsMargins(0, 0, 0, 0)
+        buttons_layout.setSpacing(4)
+        nav_area.setWidget(nav_body)
+        nav_layout.addWidget(nav_area, 1)
         self.nav_group = QButtonGroup(self)
         for index, title in enumerate(
-            ["홈", "오늘의 계획", "캘린더", "집중 타이머", "공부 통계", "생활·브리핑", "설정"]
+            [
+                "홈",
+                "오늘의 계획",
+                "캘린더",
+                "집중 타이머",
+                "공부 통계",
+                "생활·브리핑",
+                "채팅",
+                "설정",
+            ]
         ):
             nav = QPushButton(title)
             nav.setCheckable(True)
@@ -91,9 +120,9 @@ class ManagementWindow(QMainWindow):
             nav.setCursor(Qt.CursorShape.PointingHandCursor)
             nav.clicked.connect(lambda _checked=False, i=index: self.open_page(i))
             self.nav_group.addButton(nav, index)
-            nav_layout.addWidget(nav)
+            buttons_layout.addWidget(nav)
         self.nav_group.button(0).setChecked(True)
-        nav_layout.addStretch()
+        buttons_layout.addStretch()
         nav_layout.addWidget(label("인터넷 없이도 함께해요\n내 컴퓨터에만 저장", "muted"))
         nav_layout.addSpacing(10)
         nav_layout.addWidget(label(f"v{VERSION} · 초기 버전", "muted"))
@@ -111,6 +140,8 @@ class ManagementWindow(QMainWindow):
         self.companion_page = CompanionPage(companion, service)
         self.companion_page.briefing_requested.connect(self.briefing_requested.emit)
         self.pages.addWidget(self.companion_page)
+        self.chat_page = ChatPage(chat)
+        self.pages.addWidget(self.chat_page)
         self._make_settings(data_dir)
         planning.changed.connect(self.refresh_planning)
         self.refresh_planning()

@@ -61,7 +61,7 @@ def apply_theme(app: QApplication, theme: str) -> None:
         QMenu::item {{ padding: 9px 24px; }}
         QMenu::item:selected {{ background: {soft}; }}
         QDialog {{ background: {bg}; }}
-        QTableWidget, QListWidget, QGraphicsView, QTextEdit {{
+        QTableWidget, QListWidget, QGraphicsView, QTextEdit, QPlainTextEdit {{
             background: {card}; color: {text}; border: 1px solid {line};
             alternate-background-color: {bg}; gridline-color: {line}; }}
         QTableWidget::item, QListWidget::item {{ padding: 6px; }}

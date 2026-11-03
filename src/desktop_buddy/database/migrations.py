@@ -1,6 +1,6 @@
 import sqlite3
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def migrate(connection: sqlite3.Connection, old_version: int) -> None:
@@ -97,4 +97,15 @@ def migrate(connection: sqlite3.Connection, old_version: int) -> None:
             clock_warning INTEGER NOT NULL DEFAULT 0)""")
         connection.execute("""CREATE TABLE companion_messages (
             kind TEXT NOT NULL, local_date TEXT NOT NULL, PRIMARY KEY(kind,local_date))""")
+    if old_version < 5:
+        connection.execute("""CREATE TABLE chat_sessions (
+            id TEXT PRIMARY KEY, created_at TEXT NOT NULL, title TEXT NOT NULL)""")
+        connection.execute("""CREATE TABLE chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+            role TEXT NOT NULL CHECK(role IN ('user','assistant')),
+            mode TEXT NOT NULL DEFAULT 'offline', body TEXT NOT NULL, created_at TEXT NOT NULL)""")
+        connection.execute("CREATE INDEX chat_messages_session_idx ON chat_messages(session_id,id)")
+        connection.execute("""CREATE TABLE command_operations (
+            operation_id TEXT PRIMARY KEY, kind TEXT NOT NULL, completed_at TEXT NOT NULL)""")
     connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

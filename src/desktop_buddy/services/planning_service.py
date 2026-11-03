@@ -47,15 +47,15 @@ class PlanningService(QObject):
         name = name.strip()
         if not 1 <= len(name) <= 30 or not re.fullmatch(r"#[0-9a-fA-F]{6}", color):
             raise ValueError("카테고리 이름(1~30자)과 색상을 확인해 주세요.")
-        with self.store.connection:
+        with self.store.transaction():
             result = self.repository.save_category(name, color, item_id)
-        self.changed.emit()
+        self.store.emit_after_commit(self.changed)
         return result
 
     def delete_category(self, item_id: int) -> None:
-        with self.store.connection:
+        with self.store.transaction():
             self.repository.delete_category(item_id)
-        self.changed.emit()
+        self.store.emit_after_commit(self.changed)
 
     def validate(self, record: Record) -> Record:
         title = record.title.strip()
@@ -86,9 +86,9 @@ class PlanningService(QObject):
 
     def save(self, record: Record) -> int:
         record = self.validate(record)
-        with self.store.connection:
+        with self.store.transaction():
             item_id = self.repository.save(record)
-        self.changed.emit()
+        self.store.emit_after_commit(self.changed)
         return item_id
 
     def _occurrence(
@@ -209,14 +209,14 @@ class PlanningService(QObject):
 
     def set_completed(self, occurrence: Occurrence, completed: bool) -> None:
         root = self.repository.get("task", occurrence.item_id)
-        with self.store.connection:
+        with self.store.transaction():
             if root.recurrence:
                 self.repository.complete(root.id, occurrence.key, completed)
             else:
                 self.repository.save(replace(root, completed=completed))
-        self.changed.emit()
+        self.store.emit_after_commit(self.changed)
         if completed:
-            self.task_completed.emit()
+            self.store.emit_after_commit(self.task_completed)
 
     def draft(self, occurrence: Occurrence, scope: Scope) -> Record:
         root = self.repository.get(occurrence.kind, occurrence.item_id)
@@ -259,7 +259,7 @@ class PlanningService(QObject):
         if type(record) is not type(root):
             raise ValueError("할 일과 일정의 종류는 바꿀 수 없어요.")
         record = self.validate(record)
-        with self.store.connection:
+        with self.store.transaction():
             if not root.recurrence or scope == "all":
                 if root.recurrence and not record.recurrence:
                     record = self._detach_metadata(occurrence.kind, root.id, root, record)
@@ -288,12 +288,12 @@ class PlanningService(QObject):
                         self.repository.save(replace(record, id=item_id))
             else:
                 raise ValueError("변경 범위를 확인해 주세요.")
-        self.changed.emit()
+        self.store.emit_after_commit(self.changed)
         return item_id
 
     def delete(self, occurrence: Occurrence, scope: Scope = "one") -> None:
         root = self.repository.get(occurrence.kind, occurrence.item_id)
-        with self.store.connection:
+        with self.store.transaction():
             if (
                 not root.recurrence
                 or scope == "all"
@@ -314,7 +314,7 @@ class PlanningService(QObject):
                 self.repository.remove_future_metadata(occurrence.kind, root.id, occurrence.key)
             else:
                 raise ValueError("삭제 범위를 확인해 주세요.")
-        self.changed.emit()
+        self.store.emit_after_commit(self.changed)
 
     def reminders_between(self, lower: datetime, upper: datetime) -> list[Reminder]:
         result = []

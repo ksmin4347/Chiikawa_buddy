@@ -19,7 +19,7 @@ from desktop_buddy.services.single_instance import SingleInstance
 app = QApplication([])
 app.setQuitOnLastWindowClosed(False)
 app.setStyle("Fusion")
-directory = ROOT / ".qa" / "native-smoke-phase4" / uuid.uuid4().hex
+directory = ROOT / ".qa" / "native-smoke-phase5a" / uuid.uuid4().hex
 directory.mkdir(parents=True, exist_ok=True)
 guard = SingleInstance(directory)
 assert guard.acquire()
@@ -134,7 +134,39 @@ def verify():
                 "size_restored_after_focus",
             )
         )
-        focus.start_button.click()
+        controller.manager.open_page(controller.manager.CHAT_PAGE)
+        chat = controller.manager.chat_page
+        chat.input.setText("할 일 추가: 채팅 네이티브 검증")
+        chat.send_button.click()
+        result["chat_preview_before_save"] = controller.chat.pending is not None and not any(
+            item.title == "채팅 네이티브 검증"
+            for item in controller.planning.repository.records("task")
+        )
+        chat.confirm_button.click()
+        result["chat_confirm_saved"] = any(
+            item.title == "채팅 네이티브 검증"
+            for item in controller.planning.repository.records("task")
+        )
+        chat.input.setText("1분 집중 시작")
+        chat.send_button.click()
+        result["chat_timer_started"] = controller.focus_timer.status == "running"
+        chat.input.setText("타이머 일시정지")
+        chat.send_button.click()
+        result["chat_timer_paused"] = controller.focus_timer.status == "paused"
+        chat.input.setText("타이머 재개")
+        chat.send_button.click()
+        result["chat_timer_resumed"] = controller.focus_timer.status == "running"
+        assert all(
+            result[key]
+            for key in (
+                "chat_preview_before_save",
+                "chat_confirm_saved",
+                "chat_timer_started",
+                "chat_timer_paused",
+                "chat_timer_resumed",
+            )
+        )
+        assert controller.manager.grab().save(str(ROOT / ".qa" / "native-chat.png"))
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
         result["error"] = repr(error)
@@ -158,7 +190,7 @@ result["companion_timer_stopped"] = not controller.companion.timer.isActive()
 result["briefing_timer_stopped"] = not controller.briefing.timer.isActive()
 result["notification_timer_stopped"] = not controller.notifications.timer.isActive()
 next_guard.close()
-(ROOT / ".qa" / "native-smoke-phase4.json").write_text(
+(ROOT / ".qa" / "native-smoke-phase5a.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
 )
 print(json.dumps(result, ensure_ascii=False))

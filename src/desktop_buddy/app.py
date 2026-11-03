@@ -8,6 +8,7 @@ from desktop_buddy.characters.animation import AnimationState, load_clips
 from desktop_buddy.core.metadata import APP_NAME
 from desktop_buddy.core.paths import asset_directory
 from desktop_buddy.services.briefing_service import BriefingService
+from desktop_buddy.services.chat_service import ChatService
 from desktop_buddy.services.companion_service import CompanionService
 from desktop_buddy.services.focus_timer import FocusTimerService
 from desktop_buddy.services.notification_service import NotificationService
@@ -37,6 +38,9 @@ class BuddyApplication:
         self.companion = CompanionService(store, self.settings, self.focus_timer)
         self.briefing = BriefingService(self.planning, self.settings, self.companion)
         self.statistics = StudyStatistics(store, self.planning, self.focus_timer)
+        self.chat = ChatService(
+            store, self.settings, self.planning, self.focus_timer, self.statistics, self.companion
+        )
         self.power_filter = PowerEventFilter(self.focus_timer)
         app.installNativeEventFilter(self.power_filter)
         self.animation = AnimationState(load_clips(asset_directory() / "default_character"))
@@ -51,6 +55,12 @@ class BuddyApplication:
             self.focus_timer,
             self.statistics,
             self.companion,
+            self.chat,
+        )
+        self.chat.navigation_requested.connect(
+            lambda page: self.manager.open_page(
+                self.manager.SETTINGS_PAGE if page == "settings" else 2
+            )
         )
         self.mini_timer = MiniTimer(self.pet, self.focus_timer, self.settings)
         self.briefing_card = BriefingCard()
@@ -293,6 +303,7 @@ class BuddyApplication:
         if self._closed:
             return
         self._closed = True
+        self.chat.pending = None
         self.notifications.stop()
         self.companion.stop()
         self.briefing.stop()

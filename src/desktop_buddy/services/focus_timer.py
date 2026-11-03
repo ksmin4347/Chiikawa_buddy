@@ -1,6 +1,8 @@
 import logging
 import math
+from copy import deepcopy
 from datetime import datetime, time, timedelta
+from functools import wraps
 from typing import Literal
 
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -11,6 +13,38 @@ from desktop_buddy.models.focus import Clock, Phase, PhaseFinished, SystemClock,
 from desktop_buddy.models.planning import Occurrence
 from desktop_buddy.services.planning_service import PlanningService
 from desktop_buddy.services.settings_service import SettingsService
+
+
+def atomic_transition(method):
+    @wraps(method)
+    def wrapped(self, *args, **kwargs):
+        fields = (
+            "status",
+            "phase",
+            "planned",
+            "elapsed",
+            "paused",
+            "session_id",
+            "next_phase",
+            "completed_rounds",
+            "reason",
+            "task_title",
+            "category_name",
+            "recorded",
+            "plan",
+            "_link",
+            "_segment",
+            "_last_mono",
+            "_last_wall",
+            "_checkpoint_mono",
+            "_count_day",
+        )
+        previous = {key: deepcopy(getattr(self, key)) for key in fields}
+        with self.store.transaction():
+            self.store.on_rollback(lambda: self.__dict__.update(previous))
+            return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 class FocusTimerService(QObject):
@@ -116,7 +150,7 @@ class FocusTimerService(QObject):
         # Unfinished sessions without a valid checkpoint are conservatively interrupted.
         open_rows = self.repository.open_sessions()
         active = next((row for row in open_rows if row["id"] == state.get("session_id")), None)
-        with self.store.connection:
+        with self.store.transaction():
             for row in open_rows:
                 if row is not active:
                     if row["recorded"]:
@@ -168,6 +202,7 @@ class FocusTimerService(QObject):
             else (None, "분류 없음", "#607d8b")
         )
 
+    @atomic_transition
     def start(
         self,
         kind: Phase = "focus",
@@ -221,7 +256,7 @@ class FocusTimerService(QObject):
             self.recorded,
         )
         try:
-            with self.store.connection:
+            with self.store.transaction():
                 recorded = self.settings.current.record_focus if kind == "focus" else True
                 item_id = self.repository.create(
                     kind,
@@ -261,19 +296,22 @@ class FocusTimerService(QObject):
             raise
         self._segment = None
         self._last_wall, self._last_mono, self._checkpoint_mono = now, mono, mono
-        self.updated.emit(self.snapshot)
-        self.records_changed.emit()
+        self.store.emit_after_commit(self.updated, self.snapshot)
+        self.store.emit_after_commit(self.records_changed)
 
+    @atomic_transition
     def start_next(self) -> None:
         if self.status != "ready" or self.next_phase is None:
             raise ValueError("다음 단계를 기다리는 상태가 아니에요.")
         self._begin(self.next_phase, self.plan[self.next_phase])
 
+    @atomic_transition
     def skip_break(self) -> None:
         if self.status != "ready" or self.next_phase == "focus":
             raise ValueError("휴식을 기다리는 상태가 아니에요.")
         self._begin("focus", self.plan["focus"])
 
+    @atomic_transition
     def set_auto_next(self, enabled: bool) -> None:
         self.plan["auto"] = bool(enabled)
         self._persist()
@@ -318,9 +356,10 @@ class FocusTimerService(QObject):
             self.paused += delta
         self._last_mono, self._last_wall = mono, now
 
+    @atomic_transition
     def _persist(self) -> None:
         segment_id = None
-        with self.store.connection:
+        with self.store.transaction():
             if self.session_id is not None:
                 self.repository.progress(self.session_id, self.elapsed, self.paused)
                 if (
@@ -355,7 +394,7 @@ class FocusTimerService(QObject):
         day = self.clock.now().astimezone(self.planning.zone).date()
         if day != self._count_day:
             self._count_day = day
-            self.records_changed.emit()
+            self.store.emit_after_commit(self.records_changed)
         if self.status not in ("running", "paused"):
             return
         try:
@@ -365,11 +404,12 @@ class FocusTimerService(QObject):
                 return
             if self.clock.monotonic() - self._checkpoint_mono >= 5:
                 self._persist()
-                self.records_changed.emit()
+                self.store.emit_after_commit(self.records_changed)
         except Exception as error:
             self._storage_error(error)
-        self.updated.emit(self.snapshot)
+        self.store.emit_after_commit(self.updated, self.snapshot)
 
+    @atomic_transition
     def pause(self, reason: str = "manual") -> None:
         if self.status != "running":
             return
@@ -380,9 +420,10 @@ class FocusTimerService(QObject):
         self.status, self.reason = "paused", reason
         self._persist()
         self._segment = None
-        self.updated.emit(self.snapshot)
-        self.records_changed.emit()
+        self.store.emit_after_commit(self.updated, self.snapshot)
+        self.store.emit_after_commit(self.records_changed)
 
+    @atomic_transition
     def resume(self) -> None:
         if self.status != "paused":
             return
@@ -392,8 +433,9 @@ class FocusTimerService(QObject):
         self._segment = None
         self._last_wall, self._last_mono = self.clock.now(), self.clock.monotonic()
         self._persist()
-        self.updated.emit(self.snapshot)
+        self.store.emit_after_commit(self.updated, self.snapshot)
 
+    @atomic_transition
     def _finish(self, completed: bool, reason: str, auto_advance: bool = True) -> None:
         item_id, kind, elapsed = self.session_id, self.phase, self.elapsed
         rounds = self.completed_rounds + (1 if completed and kind == "focus" else 0)
@@ -404,7 +446,7 @@ class FocusTimerService(QObject):
         )
         old = (self.status, self.completed_rounds, self.next_phase, self.reason, self.session_id)
         try:
-            with self.store.connection:
+            with self.store.transaction():
                 self._persist()
                 if self.recorded:
                     self.repository.finish(item_id, self.clock.now(), completed, reason)
@@ -422,13 +464,16 @@ class FocusTimerService(QObject):
         self._segment = None
         if not completed:
             self.elapsed, self.paused = 0.0, 0.0
-        self.records_changed.emit()
-        self.updated.emit(self.snapshot)
+        self.store.emit_after_commit(self.records_changed)
+        self.store.emit_after_commit(self.updated, self.snapshot)
         if completed:
-            self.phase_finished.emit(PhaseFinished(kind, item_id, elapsed, next_kind))
+            self.store.emit_after_commit(
+                self.phase_finished, PhaseFinished(kind, item_id, elapsed, next_kind)
+            )
             if self.plan["auto"] and auto_advance:
                 self.start_next()
 
+    @atomic_transition
     def stop(self) -> None:
         if self.status in ("running", "paused"):
             self._observe()
@@ -437,8 +482,9 @@ class FocusTimerService(QObject):
         elif self.status == "ready":
             self.status, self.next_phase, self.reason = "idle", None, ""
             self._persist()
-            self.updated.emit(self.snapshot)
+            self.store.emit_after_commit(self.updated, self.snapshot)
 
+    @atomic_transition
     def reset(self) -> None:
         self.stop()
         self.completed_rounds = 0
@@ -446,7 +492,7 @@ class FocusTimerService(QObject):
         self.plan = self._default_plan()
         self.planned, self.elapsed, self.paused = self.plan["focus"], 0.0, 0.0
         self._persist()
-        self.updated.emit(self.snapshot)
+        self.store.emit_after_commit(self.updated, self.snapshot)
 
     def shutdown(self) -> None:
         self.timer.stop()

@@ -322,7 +322,14 @@ def test_schema3_migration_backs_up_focus_records(qapp, tmp_path):
         )
         repository.progress(item_id, 900, 0)
         repository.finish(item_id, now + timedelta(minutes=15), True, "completed")
-        for table in ("rest_periods", "companion_state", "companion_messages"):
+        for table in (
+            "chat_messages",
+            "chat_sessions",
+            "command_operations",
+            "rest_periods",
+            "companion_state",
+            "companion_messages",
+        ):
             store.connection.execute(f"DROP TABLE {table}")
         store.connection.execute("ALTER TABLE focus_sessions DROP COLUMN recorded")
         store.connection.execute("PRAGMA user_version=3")

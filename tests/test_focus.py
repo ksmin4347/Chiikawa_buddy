@@ -214,6 +214,9 @@ def test_v2_migration_backs_up_and_preserves_plans(qapp, tmp_path):
     store = Store(path)
     PlanningService(store).save(Task("이전 할 일", date(2026, 10, 28)))
     for table in (
+        "chat_messages",
+        "chat_sessions",
+        "command_operations",
         "companion_messages",
         "companion_state",
         "rest_periods",

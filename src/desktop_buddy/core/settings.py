@@ -6,6 +6,7 @@ from desktop_buddy.core.metadata import DEFAULT_CHARACTER_NAME
 
 @dataclass(frozen=True)
 class Settings:
+    chat_history_enabled: bool = True
     character_name: str = DEFAULT_CHARACTER_NAME
     size: int = 176
     animation_speed: int = 100

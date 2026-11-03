@@ -1,4 +1,4 @@
-# 아키텍처 — 0.4.0
+# 아키텍처 — 0.5.0
 
 ## 연결 구조
 
@@ -19,12 +19,12 @@ flowchart LR
     Focus --> FocusRepo[FocusRepository]
     Stats --> FocusRepo
     FocusRepo --> DB
-    App --> Views[한 관리창: 홈 / 계획 / 달력 / 집중 / 통계 / 생활 / 설정]
+    App --> Views[한 관리창: 홈 / 계획 / 달력 / 집중 / 통계 / 생활 / 채팅 / 설정]
     App --> Pet[펫 / 말풍선 / 트레이]
     Views --> Settings
     Views --> Planning
     Planning --> Repo[PlanningRepository]
-    Repo --> DB[SQLite 스키마 4]
+    Repo --> DB[SQLite 스키마 5]
     Settings --> DB
     Notifications --> Planning
     Notifications --> Repo
@@ -44,7 +44,7 @@ flowchart LR
 
 ## 저장소
 
-`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 4`.
+`%LOCALAPPDATA%/DesktopBuddy/buddy.db`, `PRAGMA user_version = 5`.
 
 | 테이블 | 역할 |
 |---|---|
@@ -91,7 +91,7 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 
 ## 미래 경계 — 미구현
 
-오프라인 명령, 개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
+개발자 제공 캐릭터 팩·첫 선택/변경, AI BYOK 보안 저장, ICS와 공식 제공자 연동은 각 후속 단계에서 필요한 스키마와 함께 추가한다. 현재 API 키 입력·외부 전송·원격 텔레메트리는 없다.
 
 
 ## 집중 시간과 복구
@@ -120,3 +120,19 @@ QSystemTrayIcon 메시지를 사용하며 지원하지 않으면 관리창 상�
 `WindowsAttention`은 [Microsoft SHQueryUserNotificationState](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shqueryusernotificationstate)와 [공식 열거형](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/ne-shellapi-query_user_notification_state)의 2/3/4 상태만 사용한다. API는 알림 적합성 휴리스틱이므로 모든 테두리 없는 영상/게임을 감지하지 못한다. 기본 off이며 2초 주기 조회에 창 제목·프로세스 내용·키 입력·화면 픽셀을 사용하지 않는다. 실패 시 숨김을 강제하지 않고 수동 경로를 안내한다.
 
 `BriefingService`는 오늘 발생 항목·미완료·다가오는 일정·오늘 마감·공부 분류·이전 미완료를 실제 DB로 만든다. 자동 안내는 표시 전 날짜 처리 이력을 INSERT OR IGNORE로 확보한다. 조용한 상태에서는 같은 날만 기다리고, 실행 시 옵션은 시작 날짜에만 적용한다. 직접 보기도 오늘 처리 이력을 남기며 다시 열 수 있다. 카드에는 키보드 포커스를 강제로 주지 않는다. 한국(서울) 시간을 사용하고 자동 실행 등록이나 Windows 전체 알림 설정은 바꾸지 않는다.
+
+## 오프라인 채팅 — PHASE 5A
+
+`ui/chat_page.py`는 일반 텍스트 대화·입력·선택/확인과 보관/삭제 UI를 담당한다. `chat/parser.py`의 완전 일치 규칙은 허용된 명령만 `Intent`로 바꾸고, 날짜/시각/분 범위와 키 형태 본문을 검증한다. 외부 네트워크나 모델 호출은 없다. 미래 기능을 위한 AI 입력/선택 버튼은 제공하지 않는다.
+
+`ChatService`는 조회, UUID 선택 카드와 확인 수명, 세션·보관 설정을 관리한다. 제안은 메모리에만 두며 5분 만료·새 명령/대화/보관 변경으로 무효화한다. 재시작 기록에는 작동하는 확인 컨트롤이 붙지 않는다. 동명 대상과 반복 범위를 결정한 뒤 `CommandExecutor`가 실제 기존 Planning/Focus 서비스를 호출한다. 변경 전 레코드·예외·완료·분류 또는 타이머 상태 지문을 다시 검증한다. 시간 경과만으로 타이머 중지 제안을 만료시키지 않는다.
+
+| 새 테이블 | 역할 |
+|---|---|
+| chat_sessions | UUID·생성 시각·첫 입력에서 만든 짧은 대화 제목 |
+| chat_messages | 세션 FK·사용자/앱·offline·본문·UTC 생성 시각, 세션/id 인덱스 |
+| command_operations | 성공한 UUID·명령 종류·시각만 보존. 본문/항목 제목 없음 |
+
+SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollback한다. 안쪽 실패를 잡았어도 rollback-only를 유지해 부분 커밋을 막는다. Planning/Focus는 이 경로를 공유하며 신호는 바깥 커밋 뒤 발행한다. Focus의 원자 상태 전환은 복구 훅으로 런타임·세션/구간 ID·연결 정보를 복원한다. 명령 변경·체크포인트·중복 방지 정보·성공 대화는 함께 저장한다. DB/보관 저장 또는 실제 커밋 실패 시 모두 롤백한다.
+
+보관 off는 새 메시지 DB 저장을 하지 않으며 RAM 200개로 제한한다. 다시 켜면 새 대화에 저장하고 RAM 기록을 소급 저장하지 않는다. 대화는 최신 50개 단위, 세션 선택은 최근 50개를 조회한다. 대화 삭제는 세션/메시지만 지우며 실행 중복 방지 정보와 계획·집중은 유지한다. 기존 버전은 backup API 원본 백업 후 스키마 5로 이전한다.

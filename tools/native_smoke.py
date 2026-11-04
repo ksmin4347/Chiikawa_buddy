@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QApplication
 
 from desktop_buddy.app import BuddyApplication
 from desktop_buddy.database.store import Store
+from desktop_buddy.services.completion_audio import WavePlayer
 from desktop_buddy.services.single_instance import SingleInstance
 
 app = QApplication([])
@@ -28,6 +29,16 @@ assert guard.acquire()
 store = Store(directory / "buddy.db")
 controller = BuddyApplication(app, store, guard, directory, show_onboarding=False)
 result = {"platform": app.platformName(), "screens": len(app.screens())}
+
+
+class SilentSound:
+    SND_FILENAME, SND_ASYNC, SND_NODEFAULT = 0x20000, 1, 2
+
+    def __init__(self):
+        self.calls = []
+
+    def PlaySound(self, sound, flags):
+        self.calls.append((sound, flags))
 
 
 def verify():
@@ -246,6 +257,46 @@ def verify():
         assert all(
             result[key] for key in ("gaze_pose_static", "roaming_moves_pet", "focus_stops_roaming")
         )
+        controller.focus_timer.stop()
+        sound = SilentSound()
+        controller.celebration.audio = WavePlayer(backend=sound)
+        controller.settings.update(completion_style="party", completion_sound_enabled=True)
+        count_before = store.connection.execute("SELECT COUNT(*) FROM focus_sessions").fetchone()[0]
+        controller.manager.focus_page.completion_preview.click()
+        result["completion_preview_active"] = (
+            controller.celebration.active
+            and controller.celebration.audio.playing
+            and controller.animation.state == "celebrate"
+            and controller.animation.held
+        )
+        result["completion_preview_no_record"] = (
+            store.connection.execute("SELECT COUNT(*) FROM focus_sessions").fetchone()[0]
+            == count_before
+        )
+        controller.manager.open_page(controller.manager.FOCUS_PAGE)
+        controller.manager.focus_page.verticalScrollBar().setValue(
+            controller.manager.focus_page.verticalScrollBar().maximum()
+        )
+        app.processEvents()
+        assert controller.manager.grab().save(str(ROOT / ".qa" / "native-completion.png"))
+        controller.manager.focus_page.completion_stop.click()
+        result["completion_stop_button"] = not controller.celebration.active and sound.calls[
+            -1
+        ] == (None, 0)
+        controller.manager.focus_page.completion_preview.click()
+        controller.focus_timer.start(minutes=1)
+        result["new_timer_stops_completion"] = (
+            not controller.celebration.active and not controller.celebration.audio.playing
+        )
+        assert all(
+            result[key]
+            for key in (
+                "completion_preview_active",
+                "completion_preview_no_record",
+                "completion_stop_button",
+                "new_timer_stops_completion",
+            )
+        )
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
         result["error"] = repr(error)
@@ -253,7 +304,7 @@ def verify():
 
 
 QTimer.singleShot(500, verify)
-QTimer.singleShot(10000, lambda: app.exit(2))
+QTimer.singleShot(15000, lambda: app.exit(2))
 code = app.exec()
 reopened = Store(directory / "buddy.db")
 result["unfinished_focus_checkpoint"] = (
@@ -262,6 +313,7 @@ result["unfinished_focus_checkpoint"] = (
 )
 result["focus_timer_stopped"] = not controller.focus_timer.timer.isActive()
 result["behavior_timer_stopped"] = not controller.behavior.timer.isActive()
+result["completion_timer_stopped"] = not controller.celebration.timer.isActive()
 result["persisted_voice"] = reopened.load_settings().chat_character_id == "usagi"
 result["persisted_after_exit"] = reopened.load_settings().character_name == "테스트 친구"
 reopened.close()

@@ -18,7 +18,15 @@ class CharacterCatalog:
         root = self.assets / (
             "default_character" if character_id == "moru" else f"character_packs/{character_id}"
         )
-        return load_clips(root, strict=character_id != "moru", expected_id=character_id)
+        clips = load_clips(root, strict=character_id != "moru", expected_id=character_id)
+        if "complete" in clips and "happy" in clips:
+            frames, holds = [], []
+            for name in ("complete", "complete", "happy", "happy"):
+                clip = clips[name]
+                frames.extend(clip.frames)
+                holds.extend(clip.durations_ms or [round(1000 / clip.fps)] * len(clip.frames))
+            clips["celebrate"] = Clip(frames, 6, True, tuple(holds))
+        return clips
 
 
 class CharacterService(QObject):

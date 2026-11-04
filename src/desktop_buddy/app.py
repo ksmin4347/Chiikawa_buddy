@@ -11,6 +11,7 @@ from desktop_buddy.services.briefing_service import BriefingService
 from desktop_buddy.services.character_service import CharacterService
 from desktop_buddy.services.chat_service import ChatService
 from desktop_buddy.services.companion_service import CompanionService
+from desktop_buddy.services.completion_service import CompletionService
 from desktop_buddy.services.focus_timer import FocusTimerService
 from desktop_buddy.services.notification_service import NotificationService
 from desktop_buddy.services.pet_behavior import PetBehavior
@@ -150,6 +151,15 @@ class BuddyApplication:
         self.presentation = CompanionPresenter(
             self.pet, self.mini_timer, self.settings, self.focus_timer, self.companion
         )
+        self.celebration = CompletionService(
+            self.pet,
+            self.settings,
+            self.focus_timer,
+            self.companion,
+            character=lambda: self.characters.active_id,
+        )
+        self.power_filter.on_power = self.celebration.stop
+        self.manager.focus_page.bind_celebration(self.celebration)
         self.behavior = PetBehavior(
             self.pet,
             self.settings,
@@ -250,8 +260,7 @@ class BuddyApplication:
             self.manager.statusBar().showMessage("브리핑을 불러오지 못했어요.", 15000)
 
     def _phase_finished(self, result) -> None:
-        if not self.settings.current.reduce_motion:
-            self.animation.play("complete", priority=80)
+        self.celebration.handle(result)
         text = (
             "집중 시간이 끝났어요. 잠깐 쉬어도 좋아요."
             if result.phase == "focus"
@@ -386,6 +395,7 @@ class BuddyApplication:
             return
         self._closed = True
         self.behavior.close()
+        self.celebration.close()
         self.chat.pending = None
         if self.picker is not None:
             self.picker.close()

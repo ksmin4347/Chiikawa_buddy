@@ -32,12 +32,14 @@ def test_bundled_packs_frames_holds_transparency_and_local_fallbacks(qapp, key):
         "run_right",
         "run_left",
         "look",
+        "celebrate",
     }
     assert clips["worried"] is clips["idle"] and clips["sleep"] is clips["idle"]
     assert clips["idle"].durations_ms == (280, 110, 110, 140, 140, 320)
     assert not clips["complete"].loop and len(clips["focus"].frames) == 3
     assert clips["look"].manual and len(clips["look"].frames) == 16
-    assert sum(len(clip.frames) for clip in {id(c): c for c in clips.values()}.values()) == 64
+    assert len({id(frame) for clip in clips.values() for frame in clip.frames}) == 64
+    assert clips["celebrate"].loop and len(clips["celebrate"].frames) == 18
     for clip in clips.values():
         assert all(
             image.width() == 256 and image.height() == 256 and image.hasAlphaChannel()

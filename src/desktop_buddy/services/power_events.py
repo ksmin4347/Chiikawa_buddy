@@ -9,13 +9,16 @@ from PySide6.QtCore import QAbstractNativeEventFilter
 class PowerEventFilter(QAbstractNativeEventFilter):
     """Observe Windows power broadcasts without changing system power settings."""
 
-    def __init__(self, timer):
+    def __init__(self, timer, on_power=None):
         super().__init__()
         self.timer = timer
+        self.on_power = on_power
 
     def handle(self, message: int, event: int) -> None:
         if message == 0x0218 and event in (4, 6, 7, 18):
             try:
+                if self.on_power is not None:
+                    self.on_power()
                 self.timer.pause("suspended" if event == 4 else "resumed")
             except Exception as error:
                 self.timer._storage_error(error)

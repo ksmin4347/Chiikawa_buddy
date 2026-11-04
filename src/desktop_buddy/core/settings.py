@@ -12,6 +12,8 @@ class Settings:
     mini_timer_style: str = "pill"
     cursor_look_enabled: bool = True
     roaming_enabled: bool = False
+    completion_style: str = "simple"
+    completion_sound_enabled: bool = False
     chat_character_id: str = "moru"
     chat_history_enabled: bool = True
     character_name: str = DEFAULT_CHARACTER_NAME
@@ -65,6 +67,8 @@ class Settings:
                 clean[field.name] = value if type(value) is bool else False
                 if field.name not in values:
                     clean[field.name] = bool(values)
+            elif field.name == "completion_style":
+                clean[field.name] = value if value in ("off", "simple", "party") else "simple"
             elif field.name == "mini_timer_style":
                 clean[field.name] = value if value in ("pill", "ring") else "pill"
             elif field.name in ("chat_character_id", "character_id"):

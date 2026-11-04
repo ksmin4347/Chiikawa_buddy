@@ -23,6 +23,7 @@ class FocusPage(QScrollArea):
     def __init__(self, timer, planning, settings):
         super().__init__()
         self.timer, self.planning, self.settings = timer, planning, settings
+        self.celebration = None
         self._defaults = {}
         self.setWidgetResizable(True)
         page = QWidget()
@@ -160,6 +161,45 @@ class FocusPage(QScrollArea):
             )
         )
         body.addWidget(frame)
+        frame, content = card("집중 완료 축하")
+        self.completion_style = QComboBox()
+        for title, key in (
+            ("짧게 축하하기 (기본)", "simple"),
+            ("점프·인사 공연", "party"),
+            ("축하 동작 끄기", "off"),
+        ):
+            self.completion_style.addItem(title, key)
+        self.completion_style.setAccessibleName("집중 완료 축하 동작")
+        self.completion_style.currentIndexChanged.connect(
+            lambda: self.change_completion(completion_style=self.completion_style.currentData())
+        )
+        content.addWidget(self.completion_style)
+        self.completion_sound = QCheckBox("캐릭터별 완료 음악 재생")
+        self.completion_sound.toggled.connect(
+            lambda enabled: self.change_completion(completion_sound_enabled=enabled)
+        )
+        content.addWidget(self.completion_sound)
+        self.completion_hint = label("", "muted")
+        content.addWidget(self.completion_hint)
+        row = QHBoxLayout()
+        self.completion_preview = button("축하 미리보기", self.preview_completion)
+        self.completion_stop = button("축하·음악 멈추기", self.stop_completion)
+        row.addWidget(self.completion_preview)
+        row.addWidget(self.completion_stop)
+        content.addLayout(row)
+        self.completion_status = label("", "muted")
+        content.addWidget(self.completion_status)
+        self.completion_error = label("", "muted")
+        content.addWidget(self.completion_error)
+        content.addWidget(
+            label(
+                "음악은 기본 꺼짐이에요. 공연은 소리 없이 6초, 음악을 켜면 곡 길이에 맞춰 보여요.\n"
+                "숨김·수면·방해 금지 중에는 쉬어요. 완료 알림을 끄면 자동 축하도 쉬어요.\n"
+                "새 타이머나 직접 조작은 축하를 멈춰요. 자동 다음 단계는 짧게만 축하해요.",
+                "muted",
+            )
+        )
+        body.addWidget(frame)
         body.addStretch()
         settings.changed.connect(self.refresh_settings)
         planning.changed.connect(self.refresh_links)
@@ -170,6 +210,60 @@ class FocusPage(QScrollArea):
         self.today_completed = timer.completed_today()
         timer.records_changed.connect(self.refresh_counts)
         self.refresh(timer.snapshot)
+
+    def bind_celebration(self, service) -> None:
+        self.celebration = service
+        service.changed.connect(self.refresh_completion)
+        service.failed.connect(self.completion_failed)
+        self.refresh_completion()
+
+    def change_completion(self, **changes) -> None:
+        if not self.settings.update(**changes):
+            self.completion_failed("축하 설정을 저장하지 못했어요. 다시 시도해 주세요.")
+        else:
+            self.completion_error.clear()
+        self.refresh_settings(self.settings.current)
+
+    def completion_failed(self, text: str) -> None:
+        self.error_label.setText(text)
+        self.completion_error.setText(text)
+
+    def preview_completion(self) -> None:
+        if self.celebration is not None:
+            self.completion_error.clear()
+            try:
+                self.celebration.preview()
+            except ValueError as error:
+                self.completion_failed(str(error))
+            except Exception:
+                self.completion_failed(
+                    "축하를 재생하지 못했어요. 설정을 확인하고 다시 시도해 주세요."
+                )
+
+    def stop_completion(self) -> None:
+        if self.celebration is not None:
+            self.celebration.stop()
+
+    def refresh_completion(self) -> None:
+        current = self.settings.current
+        active = self.celebration is not None and self.celebration.active
+        supported = current.character_id in ("chiikawa", "hachiware", "usagi")
+        self.completion_sound.setEnabled(supported)
+        self.completion_hint.setText(
+            "음악 길이: 치이카와 27초 · 하치와레 57초 · 우사기 16초"
+            if supported
+            else "기본 모루는 축하 동작만 있어요. 세 캐릭터를 고르면 음악도 사용할 수 있어요."
+        )
+        output = (current.completion_style != "off" and not current.reduce_motion) or (
+            current.completion_sound_enabled and supported
+        )
+        self.completion_preview.setEnabled(
+            self.celebration is not None
+            and self.timer.status not in ("running", "paused")
+            and output
+        )
+        self.completion_stop.setEnabled(active)
+        self.completion_status.setText("축하를 재생하고 있어요." if active else "")
 
     def run(self, action) -> None:
         try:
@@ -218,6 +312,8 @@ class FocusPage(QScrollArea):
             self.quiet,
             self.mini_mode,
             self.mini_style,
+            self.completion_style,
+            self.completion_sound,
         ]
         blockers = [QSignalBlocker(widget) for widget in widgets]
         for key, spin in self.config_spins.items():
@@ -227,7 +323,12 @@ class FocusPage(QScrollArea):
         self.quiet.setChecked(current.focus_quiet)
         self.mini_mode.setCurrentIndex(self.mini_mode.findData(current.mini_timer_mode))
         self.mini_style.setCurrentIndex(self.mini_style.findData(current.mini_timer_style))
+        self.completion_style.setCurrentIndex(
+            self.completion_style.findData(current.completion_style)
+        )
+        self.completion_sound.setChecked(current.completion_sound_enabled)
         del blockers
+        self.refresh_completion()
         defaults = {
             "focus": current.focus_minutes,
             "short_break": current.break_minutes,
@@ -312,3 +413,4 @@ class FocusPage(QScrollArea):
         self.skip_button.setVisible(snapshot.status == "ready" and snapshot.next_phase != "focus")
         for widget in (self.kind, self.minutes, self.task, self.task_date, self.category):
             widget.setEnabled(not active)
+        self.refresh_completion()

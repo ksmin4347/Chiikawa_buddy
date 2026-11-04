@@ -233,6 +233,7 @@ class AnimationState(QObject):
         self.state = "idle"
         self.index = 0
         self.ambient = False
+        self.held = False
 
     @property
     def clip(self) -> Clip:
@@ -242,11 +243,14 @@ class AnimationState(QObject):
     def frame(self) -> QPixmap:
         return self.clip.frames[self.index]
 
-    def play(self, state: str, priority: int = 50, force: bool = False) -> None:
-        if not force and not self.clip.loop and priority < self.priority:
+    def play(
+        self, state: str, priority: int = 50, force: bool = False, *, hold: bool = False
+    ) -> None:
+        if not force and (not self.clip.loop or self.held) and priority < self.priority:
             return
         self.priority = priority
         self.ambient = False
+        self.held = hold
         self.state = state if state in self.clips else "idle"
         self.index = 0
         self.state_changed.emit(self.state)
@@ -255,7 +259,11 @@ class AnimationState(QObject):
         old_base = self.base_state
         self.base_state = state if state in self.clips else "idle"
         self.base_priority = priority
-        if self.ambient and old_base == self.base_state and priority <= self.priority:
+        if (
+            (self.ambient or self.held)
+            and old_base == self.base_state
+            and priority <= self.priority
+        ):
             return
         if self.state == old_base or self.clip.loop or priority > self.priority:
             if self.state != self.base_state:
@@ -269,6 +277,7 @@ class AnimationState(QObject):
 
     def replace_clips(self, clips: dict[str, Clip]) -> None:
         self.ambient = False
+        self.held = False
         self.clips = clips
         self.state = self.base_state if self.base_state in clips else "idle"
         self.base_state = self.state

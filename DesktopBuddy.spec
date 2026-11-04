@@ -12,7 +12,9 @@ a = Analysis(
               f'assets/character_packs/{key}')
              for key in ('chiikawa', 'hachiware', 'usagi')
              for name in ('manifest.json', 'atlas.png', 'focus_001.png',
-                          'focus_002.png', 'focus_003.png')]] + collect_data_files('tzdata'),
+                          'focus_002.png', 'focus_003.png')],
+           *[(str(root / 'assets' / 'completion_audio' / f'{key}.wav'),
+              'assets/completion_audio') for key in ('chiikawa', 'hachiware', 'usagi')]] + collect_data_files('tzdata'),
     hiddenimports=[],
     excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.QtQml', 'PySide6.QtQuick',

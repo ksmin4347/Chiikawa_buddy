@@ -26,6 +26,7 @@ STATE_NAMES = {
     "run_right": "오른쪽 달리기",
     "run_left": "왼쪽 달리기",
     "look": "시선 (16방향)",
+    "celebrate": "완료 공연",
 }
 
 

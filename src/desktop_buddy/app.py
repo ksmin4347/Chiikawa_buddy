@@ -13,6 +13,7 @@ from desktop_buddy.services.chat_service import ChatService
 from desktop_buddy.services.companion_service import CompanionService
 from desktop_buddy.services.focus_timer import FocusTimerService
 from desktop_buddy.services.notification_service import NotificationService
+from desktop_buddy.services.pet_behavior import PetBehavior
 from desktop_buddy.services.planning_service import PlanningService
 from desktop_buddy.services.power_events import PowerEventFilter
 from desktop_buddy.services.settings_service import SettingsService
@@ -149,6 +150,20 @@ class BuddyApplication:
         self.presentation = CompanionPresenter(
             self.pet, self.mini_timer, self.settings, self.focus_timer, self.companion
         )
+        self.behavior = PetBehavior(
+            self.pet,
+            self.settings,
+            blocked=lambda: (
+                self._closed
+                or self.focus_timer.status in ("running", "paused")
+                or self.companion.quiet()
+            ),
+            roaming_blocked=lambda: (
+                self.manager.isVisible() or (self.picker is not None and self.picker.isVisible())
+            ),
+        )
+        self.focus_timer.updated.connect(self.behavior.refresh)
+        self.companion.changed.connect(self.behavior.refresh)
         self.companion.can_notify = lambda: self.pet.isVisible() and not self._closed
         self.briefing.can_notify = lambda: self.presentation.requested_visible and not self._closed
         self.companion.failed.connect(
@@ -370,6 +385,7 @@ class BuddyApplication:
         if self._closed:
             return
         self._closed = True
+        self.behavior.close()
         self.chat.pending = None
         if self.picker is not None:
             self.picker.close()

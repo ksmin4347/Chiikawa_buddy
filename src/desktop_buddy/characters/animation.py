@@ -13,6 +13,7 @@ class Clip:
     fps: float
     loop: bool
     durations_ms: tuple[int, ...] = ()
+    manual: bool = False
 
 
 def fallback_pixmap() -> QPixmap:
@@ -190,6 +191,7 @@ def load_clips(
                     max(1, min(30, fps)),
                     loop if type(loop) is bool else True,
                     tuple(holds),
+                    spec.get("manual") is True,
                 )
         if "idle" not in clips:
             raise AssetError("기본 캐릭터 프레임이 없어요.")
@@ -230,6 +232,7 @@ class AnimationState(QObject):
         self.priority = 0
         self.state = "idle"
         self.index = 0
+        self.ambient = False
 
     @property
     def clip(self) -> Clip:
@@ -243,6 +246,7 @@ class AnimationState(QObject):
         if not force and not self.clip.loop and priority < self.priority:
             return
         self.priority = priority
+        self.ambient = False
         self.state = state if state in self.clips else "idle"
         self.index = 0
         self.state_changed.emit(self.state)
@@ -251,6 +255,8 @@ class AnimationState(QObject):
         old_base = self.base_state
         self.base_state = state if state in self.clips else "idle"
         self.base_priority = priority
+        if self.ambient and old_base == self.base_state and priority <= self.priority:
+            return
         if self.state == old_base or self.clip.loop or priority > self.priority:
             if self.state != self.base_state:
                 self.play(self.base_state, priority=priority, force=True)
@@ -262,6 +268,7 @@ class AnimationState(QObject):
         )
 
     def replace_clips(self, clips: dict[str, Clip]) -> None:
+        self.ambient = False
         self.clips = clips
         self.state = self.base_state if self.base_state in clips else "idle"
         self.base_state = self.state
@@ -269,9 +276,34 @@ class AnimationState(QObject):
         self.state_changed.emit(self.state)
 
     def advance(self) -> None:
+        if self.clip.manual:
+            return
         if self.index + 1 < len(self.clip.frames):
             self.index += 1
         elif self.clip.loop:
             self.index = 0
         else:
+            self.play(self.base_state, priority=self.base_priority, force=True)
+
+    def show_ambient(self, state: str, index: int | None = None) -> bool:
+        if (
+            self.base_state != "idle"
+            or (self.state != self.base_state and not self.ambient)
+            or state not in self.clips
+        ):
+            return False
+        target = self.clips[state]
+        frame = index if index is not None else self.index if self.state == state else 0
+        if not 0 <= frame < len(target.frames):
+            return False
+        changed = self.state != state or self.index != frame
+        self.state, self.index = state, frame
+        self.priority = max(25, self.base_priority)
+        self.ambient = True
+        if changed:
+            self.state_changed.emit(state)
+        return True
+
+    def clear_ambient(self) -> None:
+        if self.ambient:
             self.play(self.base_state, priority=self.base_priority, force=True)

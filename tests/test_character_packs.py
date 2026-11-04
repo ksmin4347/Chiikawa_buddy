@@ -20,10 +20,24 @@ pack_controller = _controller_fixture
 @pytest.mark.parametrize("key", ["chiikawa", "hachiware", "usagi"])
 def test_bundled_packs_frames_holds_transparency_and_local_fallbacks(qapp, key):
     clips = CharacterCatalog().load(key)
-    assert set(clips) == {"idle", "happy", "focus", "break", "complete", "sad", "worried", "sleep"}
+    assert set(clips) == {
+        "idle",
+        "happy",
+        "focus",
+        "break",
+        "complete",
+        "sad",
+        "worried",
+        "sleep",
+        "run_right",
+        "run_left",
+        "look",
+    }
     assert clips["worried"] is clips["idle"] and clips["sleep"] is clips["idle"]
     assert clips["idle"].durations_ms == (280, 110, 110, 140, 140, 320)
     assert not clips["complete"].loop and len(clips["focus"].frames) == 3
+    assert clips["look"].manual and len(clips["look"].frames) == 16
+    assert sum(len(clip.frames) for clip in {id(c): c for c in clips.values()}.values()) == 64
     for clip in clips.values():
         assert all(
             image.width() == 256 and image.height() == 256 and image.hasAlphaChannel()

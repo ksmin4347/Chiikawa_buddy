@@ -1,4 +1,4 @@
-# 아키텍처 — 0.5.2
+# 아키텍처 — 0.5.4
 
 ## 연결 구조
 
@@ -157,3 +157,12 @@ SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollb
 `CharacterPage`는 상태별 정적 미리보기와 선택을 제공한다. 첫 실행의 `CharacterPicker`는 비차단 대화상자이며 나중에 선택하면 다음 실행에 다시 안내한다. 기존 설정은 첫 선택을 강제하지 않는다. `character_id`, `chat_character_id`, `character_selection_done`, `mini_timer_style`은 기존 설정 저장 구조를 사용해 스키마 6을 유지한다.
 
 `AnimationState.frame_delay_ms`가 각 프레임의 재생 시간을 제공한다. `PetWindow`는 숨김 시 재생을 멈추며 전환 때 캐시를 교체한다. `MiniTimer`의 원형 표시는 같은 타이머 스냅샷을 그리며 별도 고빈도 시계나 독립 카운트다운을 만들지 않는다. 프리셋/우클릭도 기존 `FocusTimerService`를 호출한다.
+
+
+## 마우스 시선과 선택형 이동 — 0.5.4
+
+`characters/behavior.py`는 화면 좌표와 독립적으로 16방향 계산·경계 히스테리시스·유한 좌우 경로를 계산한다. 방향은 북쪽부터 시계 방향이며 정지 포즈 `look`은 manual 클립이다. `AnimationState.show_ambient`는 기본 idle에서만 동작하고 같은 기본 상태 갱신에는 유지하되 직접 반응·새 기본 상태에 양보한다. `advance`는 manual 클립을 순환하지 않는다.
+
+`PetBehavior`는 포인터를 120ms 간격으로 확인하고 이동 중에만 33ms 주기를 사용한다. 입력 훅·좌표 저장·전송은 없다. 시선과 이동이 모두 비활성/미지원이거나 숨김·수면·집중·조용한 상태면 타이머를 정지한다. 이동은 현재 모니터 작업 영역의 수평 경로만 만들며 0.5초 초과/음수 시간 공백에는 경로를 버린다. UI 재배치·크기/팩 전환·직접 입력이 경로를 무효화한다.
+
+`PetWindow`는 포즈·마스크·드래그/메뉴 상태·실제 창 이동을 담당한다. `geometry_changed`로 작은 타이머가 따라오며 이동 종료/중단 때만 위치 저장 신호를 보낸다. 좌표 보정은 저장된 위치와 다를 때만 신호를 보내 중복 저장 요청을 막는다. `cursor_look_enabled=True`, `roaming_enabled=False`는 기존 설정 구조를 사용하며 DB 스키마 6을 유지한다.

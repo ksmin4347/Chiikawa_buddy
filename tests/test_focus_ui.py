@@ -19,6 +19,9 @@ def controller(qapp, tmp_path):
     store = Store(tmp_path / "buddy.db")
     buddy = BuddyApplication(qapp, store, guard, tmp_path, show_onboarding=False)
     clock = Clock()
+    buddy.planning.today = lambda: clock.now().astimezone(buddy.planning.zone).date()
+    day = buddy.planning.today()
+    buddy.manager.statistics_page.calendar.setCurrentPage(day.year, day.month)
     buddy.focus_timer.clock = clock
     buddy.companion.clock = clock
     buddy.companion.guard.clock = clock

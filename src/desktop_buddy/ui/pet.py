@@ -24,6 +24,8 @@ class PetWindow(QWidget):
     character_requested = Signal()
     quick_focus_requested = Signal(int)
     timer_control_requested = Signal(str)
+    interaction_changed = Signal()
+    pack_changed = Signal()
 
     def __init__(self, animation: AnimationState, settings: Settings):
         flags = Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint
@@ -45,6 +47,7 @@ class PetWindow(QWidget):
         self._press: QPoint | None = None
         self._origin = QPoint()
         self._dragging = False
+        self._menu_open = False
         self._double = False
         self._frames = {}
         self._masks = {}
@@ -111,11 +114,13 @@ class PetWindow(QWidget):
         self._frames, self._masks = prepared
         self._scaled_size = self.width()
         self.animation.replace_clips(clips)
+        self.pack_changed.emit()
 
     def _update_timer(self) -> None:
         if (
             self.isVisible()
             and not self.settings.reduce_motion
+            and not self.animation.clip.manual
             and (len(self.animation.clip.frames) > 1 or not self.animation.clip.loop)
         ):
             self.animation_timer.start(
@@ -196,6 +201,7 @@ class PetWindow(QWidget):
             self._double = False
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
             self.bubble.hide()
+            self.interaction_changed.emit()
             event.accept()
 
     def mouseMoveEvent(self, event) -> None:
@@ -219,6 +225,7 @@ class PetWindow(QWidget):
         elif not self._double:
             self._click_timer.start(QApplication.doubleClickInterval())
         self._press = None
+        self.interaction_changed.emit()
 
     def mouseDoubleClickEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -258,10 +265,25 @@ class PetWindow(QWidget):
     def contextMenuEvent(self, event) -> None:
         self._click_timer.stop()
         menu = self.create_context_menu()
+        self._menu_open = True
+        self.interaction_changed.emit()
         try:
             menu.exec(event.globalPos())
         finally:
+            self._menu_open = False
+            self.interaction_changed.emit()
             menu.deleteLater()
+
+    @property
+    def interacting(self) -> bool:
+        return self._press is not None or self._menu_open
+
+    def work_area(self) -> Rect:
+        screen = (
+            QGuiApplication.screenAt(self.geometry().center()) or QGuiApplication.primaryScreen()
+        )
+        area = screen.availableGeometry()
+        return Rect(area.x(), area.y(), area.width(), area.height())
 
     def safe_position(self, x: int, y: int) -> tuple[int, int]:
         screens = [
@@ -272,7 +294,8 @@ class PetWindow(QWidget):
 
     def ensure_visible_position(self, *_args) -> None:
         self.move(*self.safe_position(self.x(), self.y()))
-        self.position_changed.emit(self.x(), self.y())
+        if (self.settings.x, self.settings.y) != (self.x(), self.y()):
+            self.position_changed.emit(self.x(), self.y())
 
     def moveEvent(self, event) -> None:
         super().moveEvent(event)

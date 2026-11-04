@@ -10,6 +10,8 @@ class Settings:
     character_id: str = "moru"
     character_selection_done: bool = False
     mini_timer_style: str = "pill"
+    cursor_look_enabled: bool = True
+    roaming_enabled: bool = False
     chat_character_id: str = "moru"
     chat_history_enabled: bool = True
     character_name: str = DEFAULT_CHARACTER_NAME

@@ -3,13 +3,15 @@
 # ruff: noqa: E402 -- Set source path before project imports.
 import json
 import sys
+import time
 import uuid
 from datetime import timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from PySide6.QtCore import QCoreApplication, QEvent, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QPoint, Qt, QTimer
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 from desktop_buddy.app import BuddyApplication
@@ -202,6 +204,48 @@ def verify():
             )
         )
         assert controller.manager.grab().save(str(ROOT / ".qa" / "native-characters.png"))
+        controller.focus_timer.stop()
+        controller.manager.hide()
+        controller.find_pet()
+        QTest.qWait(850)
+        controller.pet.bubble.hide()
+        controller.pet.underMouse = lambda: False
+        behavior = controller.behavior
+        moment = [time.monotonic()]
+        behavior.clock = lambda: moment[0]
+        behavior.cursor = lambda: QPoint(
+            controller.pet.x() - 300,
+            round(controller.pet.y() + controller.pet.height() * 0.43),
+        )
+        behavior._last_tick = moment[0]
+        result["behavior_initial_state"] = {
+            "state": controller.animation.state,
+            "base": controller.animation.base_state,
+            "quiet": controller.companion.quiet(),
+            "interacting": controller.pet.interacting,
+        }
+        behavior.poll()
+        result["gaze_pose_static"] = (
+            controller.animation.state == "look"
+            and controller.animation.index == 12
+            and not controller.pet.animation_timer.isActive()
+        )
+        controller.settings.update(roaming_enabled=True)
+        behavior._next_walk = moment[0]
+        behavior.poll()
+        position = controller.pet.pos()
+        moment[0] += 0.2
+        behavior.poll()
+        result["roaming_moves_pet"] = behavior.walk is not None and controller.pet.pos() != position
+        controller.focus_timer.start(minutes=1)
+        result["focus_stops_roaming"] = (
+            behavior.walk is None
+            and not behavior.timer.isActive()
+            and controller.animation.state == "focus"
+        )
+        assert all(
+            result[key] for key in ("gaze_pose_static", "roaming_moves_pet", "focus_stops_roaming")
+        )
         QTimer.singleShot(300, controller.quit)
     except Exception as error:
         result["error"] = repr(error)
@@ -217,6 +261,7 @@ result["unfinished_focus_checkpoint"] = (
     >= 0
 )
 result["focus_timer_stopped"] = not controller.focus_timer.timer.isActive()
+result["behavior_timer_stopped"] = not controller.behavior.timer.isActive()
 result["persisted_voice"] = reopened.load_settings().chat_character_id == "usagi"
 result["persisted_after_exit"] = reopened.load_settings().character_name == "테스트 친구"
 reopened.close()

@@ -1,7 +1,7 @@
 {
   "id": "usagi",
   "name": "우사기",
-  "version": 1,
+  "version": 2,
   "atlas": {
     "path": "atlas.png",
     "cell_width": 192,
@@ -206,6 +206,173 @@
       ],
       "fps": 3,
       "loop": true
+    },
+    "run_right": {
+      "frames": [
+        {
+          "row": 1,
+          "column": 0
+        },
+        {
+          "row": 1,
+          "column": 1
+        },
+        {
+          "row": 1,
+          "column": 2
+        },
+        {
+          "row": 1,
+          "column": 3
+        },
+        {
+          "row": 1,
+          "column": 4
+        },
+        {
+          "row": 1,
+          "column": 5
+        },
+        {
+          "row": 1,
+          "column": 6
+        },
+        {
+          "row": 1,
+          "column": 7
+        }
+      ],
+      "durations_ms": [
+        80,
+        80,
+        80,
+        80,
+        80,
+        80,
+        80,
+        80
+      ],
+      "fps": 8,
+      "loop": true
+    },
+    "run_left": {
+      "frames": [
+        {
+          "row": 2,
+          "column": 0
+        },
+        {
+          "row": 2,
+          "column": 1
+        },
+        {
+          "row": 2,
+          "column": 2
+        },
+        {
+          "row": 2,
+          "column": 3
+        },
+        {
+          "row": 2,
+          "column": 4
+        },
+        {
+          "row": 2,
+          "column": 5
+        },
+        {
+          "row": 2,
+          "column": 6
+        },
+        {
+          "row": 2,
+          "column": 7
+        }
+      ],
+      "durations_ms": [
+        80,
+        80,
+        80,
+        80,
+        80,
+        80,
+        80,
+        80
+      ],
+      "fps": 8,
+      "loop": true
+    },
+    "look": {
+      "frames": [
+        {
+          "row": 9,
+          "column": 0
+        },
+        {
+          "row": 9,
+          "column": 1
+        },
+        {
+          "row": 9,
+          "column": 2
+        },
+        {
+          "row": 9,
+          "column": 3
+        },
+        {
+          "row": 9,
+          "column": 4
+        },
+        {
+          "row": 9,
+          "column": 5
+        },
+        {
+          "row": 9,
+          "column": 6
+        },
+        {
+          "row": 9,
+          "column": 7
+        },
+        {
+          "row": 10,
+          "column": 0
+        },
+        {
+          "row": 10,
+          "column": 1
+        },
+        {
+          "row": 10,
+          "column": 2
+        },
+        {
+          "row": 10,
+          "column": 3
+        },
+        {
+          "row": 10,
+          "column": 4
+        },
+        {
+          "row": 10,
+          "column": 5
+        },
+        {
+          "row": 10,
+          "column": 6
+        },
+        {
+          "row": 10,
+          "column": 7
+        }
+      ],
+      "fps": 1,
+      "loop": true,
+      "manual": true
     }
   },
   "aliases": {

@@ -1,10 +1,12 @@
-# PHASE 0~4·5A·5B·일부 5C 검증 — 0.5.6
+# PHASE 0~4·5A·5B·일부 5C 검증 — 0.5.7
 
 검증일: 2026-11-05, 한국 시간. Windows 11 build 26200, Python 3.12.14, PySide6 6.12.0, pytest 9.2.0, ruff 0.17.3, PyInstaller 6.22.3.
 
 ## 자동 회귀
 
-**380개 통과**: 기존 366개 + UI·선택·실패 복구 재현 검사 14개. 새 임시 DB와 Qt offscreen 플랫폼을 사용했습니다. 실제 사용자 DB는 사용하지 않았습니다. `ruff check .`, `ruff format --check .` 통과.
+**404개 통과**: 기존 380개 + 키보드·접근성·조합 보호 검사 24개. 새 임시 DB와 Qt offscreen 플랫폼을 사용했습니다. 실제 사용자 DB는 사용하지 않았습니다. `ruff check .`, `ruff format --check .` 통과.
+
+0.5.7의 offscreen 31개 화면 상태와 접근성 인터페이스/안내 이벤트, 실제 Windows UI Automation 읽기와 입력 중단 범위는 [5C 기록](PHASE_5C_REPORT.md)을 따릅니다. 실제 Windows 키보드·IME·스크린리더 인수는 남았습니다.
 
 0.5.6의 수정, 100/125/150/200% Windows Qt UI 검사 116개 화면 상태와 수동 검증 한계는 [재점검 보고서](AUDIT_REPORT_0.5.6.md)에 정리했습니다. 한글 글꼴을 테스트에 등록해 offscreen의 네모 글꼴로 너비를 잘못 검사하지 않도록 했습니다.
 
@@ -20,7 +22,7 @@
 
 스키마 6을 유지하며 설정 필드만 확장했습니다. 데이터 초기화·사용자 원본 삭제·네트워크 기능 추가는 없습니다. 자동 검사가 모든 오류를 찾는 보장은 아닙니다.
 
-## Windows Qt 자체 실행
+## 이전 Windows Qt 자체 실행 — 0.5.6
 
 `tools/native_smoke.py`를 `QT_QPA_PLATFORM=windows`로 실행했습니다. 전용 `.qa/native-smoke-characters/<UUID>` DB와 `.qa/native-smoke-characters.json`을 사용했습니다.
 
@@ -35,7 +37,7 @@ Qt API로 앱을 조작한 검사이며 실제 OS 마우스/키보드·트레이
 
 `tools/render_preview.py`는 전용 QA DB에서 앱 위젯만 렌더링합니다. 기존 페이지와 3종 채팅, 실제 3종 선택·집중 미리보기·첫 선택·원형 타이머, 어두운 720×560 캐릭터 화면을 점검했습니다. 사용자 데이터나 다른 앱을 캡처하지 않았습니다.
 
-PyInstaller **0.5.6 one-folder 빌드**와 포함 파일을 확인했습니다. 모루·아이콘·고정 3종의 각 5파일(manifest/atlas/focus 3장)·완료 PCM WAV 3개·Qt Windows 플러그인·tzdata Asia/Seoul과 선택 모듈을 포함합니다. 작업 원본·DB·로그·QA·키 파일은 제외합니다.
+PyInstaller **0.5.7 one-folder 빌드**와 포함 파일을 확인했습니다. 모루·아이콘·고정 3종의 각 5파일(manifest/atlas/focus 3장)·완료 PCM WAV 3개·Qt Windows 플러그인·tzdata Asia/Seoul과 키보드/접근성 모듈을 포함합니다. 작업 원본·DB·로그·QA·키 파일은 제외합니다.
 
 EXE 자체 실행은 미검증입니다. 이전 Windows 앱 제어 정책 거부를 우회하지 않았습니다. 확인된 실행 경로는 `run_windows.bat`의 Python/PySide6 소스 실행입니다.
 

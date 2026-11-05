@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from desktop_buddy.ui.accessibility import announce
 from desktop_buddy.ui.common import button, card, compact_combo, label, wrap_form
 from desktop_buddy.ui.mini_timer import PHASE_NAMES, countdown, duration
 from desktop_buddy.ui.planning_dialogs import confirm_delete
@@ -25,6 +26,7 @@ class FocusPage(QScrollArea):
         self.timer, self.planning, self.settings = timer, planning, settings
         self.celebration = None
         self._defaults = {}
+        self._announced_status = None
         self.setWidgetResizable(True)
         page = QWidget()
         self.setWidget(page)
@@ -38,9 +40,11 @@ class FocusPage(QScrollArea):
         self.time_label = label("25:00")
         self.time_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.time_label.setProperty("kind", "countdown")
+        self.time_label.setAccessibleName("남은 타이머 시간")
         self.progress = QProgressBar()
         self.progress.setRange(0, 1000)
         self.progress.setTextVisible(False)
+        self.progress.setAccessibleName("타이머 진행률")
         self.detail = label("", "muted")
         self.reason = label("", "muted")
         for widget in (self.phase_label, self.time_label, self.progress, self.detail, self.reason):
@@ -73,9 +77,11 @@ class FocusPage(QScrollArea):
         form = QFormLayout()
         wrap_form(form)
         self.kind = QComboBox()
+        self.kind.setAccessibleName("타이머 종류")
         for key, title in PHASE_NAMES.items():
             self.kind.addItem(title, key)
         self.minutes = QSpinBox()
+        self.minutes.setAccessibleName("이번 타이머 시간 · 분")
         self.minutes.setRange(1, 1440)
         self.minutes.setSuffix(" 분")
         self.kind.currentIndexChanged.connect(self.default_minutes)
@@ -92,16 +98,19 @@ class FocusPage(QScrollArea):
             preset_row.addWidget(preset)
         form.addRow("빠른 시간 선택", preset_row)
         self.task_date = QDateEdit(QDate(planning.today()))
+        self.task_date.setAccessibleName("연결할 할 일의 날짜")
         self.task_date.setCalendarPopup(True)
         self.task_date.setDisplayFormat("yyyy-MM-dd")
         self.task_date.dateChanged.connect(self.refresh_links)
         self.task = QComboBox()
+        self.task.setAccessibleName("집중에 연결할 할 일")
         self.task.setMinimumContentsLength(12)
         self.task.setSizeAdjustPolicy(
             QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon
         )
         self.task.currentIndexChanged.connect(self.select_task)
         self.category = QComboBox()
+        self.category.setAccessibleName("집중 기록 분류")
         compact_combo(self.category)
         form.addRow("할 일 날짜", self.task_date)
         form.addRow("연결할 할 일", self.task)
@@ -122,12 +131,14 @@ class FocusPage(QScrollArea):
             ("long_break_interval", "긴 휴식까지 집중 횟수", 12),
         ]:
             spin = QSpinBox()
+            spin.setAccessibleName(title)
             spin.setRange(1, upper)
             spin.setSuffix(" 회" if field == "long_break_interval" else " 분")
             spin.valueChanged.connect(lambda value, key=field: settings.update(**{key: value}))
             self.config_spins[field] = spin
             form.addRow(title, spin)
         self.mini_mode = QComboBox()
+        self.mini_mode.setAccessibleName("작은 타이머 표시 조건")
         for title, mode in [
             ("집중 중에만", "focus"),
             ("항상", "always"),
@@ -140,6 +151,7 @@ class FocusPage(QScrollArea):
         )
         form.addRow("캐릭터 옆 작은 타이머", self.mini_mode)
         self.mini_style = QComboBox()
+        self.mini_style.setAccessibleName("작은 타이머 모양")
         self.mini_style.addItem("숫자", "pill")
         self.mini_style.addItem("원형 진행", "ring")
         self.mini_style.currentIndexChanged.connect(
@@ -191,6 +203,7 @@ class FocusPage(QScrollArea):
         row.addWidget(self.completion_stop)
         content.addLayout(row)
         self.completion_status = label("", "muted")
+        self.completion_status.setAccessibleName("완료 축하 재생 상태")
         content.addWidget(self.completion_status)
         self.completion_error = label("", "muted")
         content.addWidget(self.completion_error)
@@ -384,6 +397,9 @@ class FocusPage(QScrollArea):
             PHASE_NAMES[snapshot.phase] + (" · 일시정지" if snapshot.status == "paused" else "")
         )
         self.time_label.setText(countdown(snapshot.remaining_seconds))
+        self.time_label.setAccessibleDescription(
+            PHASE_NAMES[snapshot.phase] + " · " + self.time_label.text()
+        )
         self.progress.setValue(round(snapshot.elapsed_seconds / snapshot.planned_seconds * 1000))
         self.detail.setText(
             f"진행 {duration(snapshot.elapsed_seconds)} · "
@@ -406,6 +422,13 @@ class FocusPage(QScrollArea):
         if snapshot.status == "ready":
             text = f"완료했어요! 다음은 {PHASE_NAMES[snapshot.next_phase]}예요."
         self.reason.setText(text)
+        key = snapshot.phase, snapshot.status
+        if self._announced_status is not None and key != self._announced_status:
+            status = {"idle": "대기", "running": "진행 중", "paused": "일시정지", "ready": "완료"}
+            announce(
+                self.phase_label, PHASE_NAMES[snapshot.phase] + " · " + status[snapshot.status]
+            )
+        self._announced_status = key
         self.start_button.setEnabled(not active)
         for preset in self.presets:
             preset.setEnabled(not active)

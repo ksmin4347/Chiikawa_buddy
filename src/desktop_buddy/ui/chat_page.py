@@ -1,12 +1,11 @@
 from datetime import datetime
 
-from PySide6.QtCore import QSignalBlocker, QTimer
-from PySide6.QtGui import QTextCursor
+from PySide6.QtCore import QSignalBlocker, Qt, QTimer
+from PySide6.QtGui import QAction, QKeySequence, QTextCursor
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QHBoxLayout,
-    QLineEdit,
     QMessageBox,
     QPlainTextEdit,
     QScrollArea,
@@ -16,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from desktop_buddy.characters.dialogue_profiles import PROFILES, profile
 from desktop_buddy.chat.parser import SecretInputError
+from desktop_buddy.ui.accessibility import CommandInput, announce
 from desktop_buddy.ui.common import button, card, label
 
 
@@ -108,6 +108,7 @@ class ChatPage(QWidget):
         )
         body.addWidget(self.transcript, 1)
         self.proposal, content = card("실행 전 확인 · 5분 후 만료")
+        self.proposal.setAccessibleName("실행 전 확인 카드")
         self.choices = QComboBox()
         self.choices.setAccessibleName("대상 또는 변경 범위 선택")
         self.choices.setMinimumContentsLength(12)
@@ -117,6 +118,7 @@ class ChatPage(QWidget):
         content.addWidget(self.choices)
         row = QHBoxLayout()
         self.confirm_button = button("확인하고 적용", self._confirm, True)
+        self.confirm_button.setToolTip("Ctrl+Enter로 현재 확인 카드를 적용해요.")
         row.addWidget(self.confirm_button)
         row.addWidget(button("취소", lambda: self._run(self.service.cancel)))
         content.addLayout(row)
@@ -128,7 +130,7 @@ class ChatPage(QWidget):
         self.error.hide()
         body.addWidget(self.error)
         row = QHBoxLayout()
-        self.input = QLineEdit()
+        self.input = CommandInput()
         self.input.setMaxLength(2000)
         self.input.setPlaceholderText("한 번에 한 명령을 입력하세요")
         self.input.setAccessibleName("채팅 명령 입력")
@@ -137,6 +139,16 @@ class ChatPage(QWidget):
         self.send_button = button("보내기", self._submit, True)
         row.addWidget(self.send_button)
         body.addLayout(row)
+        for title, keys, callback in (
+            ("채팅 확인 카드 적용", ("Ctrl+Return", "Ctrl+Enter"), self.confirm_from_keyboard),
+            ("채팅 확인 카드 취소", ("Escape",), self.cancel_from_keyboard),
+        ):
+            action = QAction(title, self)
+            action.setAutoRepeat(False)
+            action.setShortcuts([QKeySequence(key) for key in keys])
+            action.setShortcutContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+            action.triggered.connect(callback)
+            self.addAction(action)
         service.changed.connect(self.refresh)
         if service.characters is not None:
             service.characters.changed.connect(self.refresh)
@@ -165,9 +177,12 @@ class ChatPage(QWidget):
         finally:
             self.refresh()
         self.error.show()
+        announce(self.error, "명령을 처리하지 못했어요. 오류 내용을 확인해 주세요.", urgent=True)
         return False
 
     def _submit(self):
+        if self.input.composing:
+            return
         self.send_button.setEnabled(False)
         try:
             if self._run(lambda: self.service.submit(self.input.text())):
@@ -177,6 +192,8 @@ class ChatPage(QWidget):
             self.input.setFocus()
 
     def _confirm(self):
+        if self.input.composing:
+            return
         request_id = self._request_id
         choice = self.choices.currentData()
         choosing = bool(self.service.pending and self.service.pending.choices)
@@ -191,6 +208,15 @@ class ChatPage(QWidget):
             )
         finally:
             self.confirm_button.setEnabled(True)
+
+    def confirm_from_keyboard(self) -> None:
+        if self.service.pending is not None and not self.input.composing:
+            self.confirm_button.click()
+
+    def cancel_from_keyboard(self) -> None:
+        if self.service.pending is not None and not self.input.composing:
+            self._run(self.service.cancel)
+            self.input.setFocus()
 
     def _select_session(self):
         key = self.sessions.currentData()
@@ -287,6 +313,7 @@ class ChatPage(QWidget):
         self._rows = self.service.messages()
         self._render(True)
         pending = self.service.pending
+        previous_request = self._request_id
         self._request_id = pending.request_id if pending else None
         self.proposal.setVisible(pending is not None)
         self.choices.clear()
@@ -297,3 +324,17 @@ class ChatPage(QWidget):
         self.confirm_button.setText(
             "선택한 내용으로 계속" if pending and pending.choices else "확인하고 적용"
         )
+        if pending is not None and pending.request_id != previous_request:
+            QTimer.singleShot(
+                0,
+                self,
+                lambda: (
+                    announce(
+                        self.proposal,
+                        "실행 전 확인할 내용이 있어요. "
+                        "Ctrl+Enter로 적용하거나 Escape로 취소하세요.",
+                    )
+                    if self.service.pending is not None
+                    else None
+                ),
+            )

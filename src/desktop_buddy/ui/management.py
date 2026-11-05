@@ -1,8 +1,9 @@
 from datetime import datetime
 
 from PySide6.QtCore import QSignalBlocker, Qt, QTime, QTimer, Signal
-from PySide6.QtGui import QIcon
+from PySide6.QtGui import QAction, QIcon, QKeySequence
 from PySide6.QtWidgets import (
+    QApplication,
     QButtonGroup,
     QCheckBox,
     QComboBox,
@@ -30,6 +31,7 @@ from desktop_buddy.ui.chat_page import ChatPage
 from desktop_buddy.ui.common import button, card, fit_window, label, scroll_page, wrap_form
 from desktop_buddy.ui.companion_page import CompanionPage
 from desktop_buddy.ui.focus_page import FocusPage
+from desktop_buddy.ui.keyboard_help import PAGE_NAMES, KeyboardHelp
 from desktop_buddy.ui.planning_actions import PlanningActions
 from desktop_buddy.ui.statistics_page import StatisticsPage
 from desktop_buddy.ui.today_page import TodayPage
@@ -82,6 +84,7 @@ class ManagementWindow(QMainWindow):
         nav_layout = QVBoxLayout(side)
         nav_layout.setContentsMargins(18, 28, 18, 22)
         self.logo = logo = QLabel()
+        logo.setAccessibleName("선택한 친구")
         logo.setPixmap(
             preview.scaled(
                 68,
@@ -106,28 +109,25 @@ class ManagementWindow(QMainWindow):
         nav_area.setWidget(nav_body)
         nav_layout.addWidget(nav_area, 1)
         self.nav_group = QButtonGroup(self)
-        for index, title in enumerate(
-            [
-                "홈",
-                "오늘의 계획",
-                "캘린더",
-                "집중 타이머",
-                "공부 통계",
-                "생활·브리핑",
-                "채팅",
-                "캐릭터",
-                "설정",
-            ]
-        ):
+        self.navigation_actions = []
+        for index, title in enumerate(PAGE_NAMES):
             nav = QPushButton(title)
             nav.setCheckable(True)
             nav.setProperty("nav", True)
             nav.setCursor(Qt.CursorShape.PointingHandCursor)
-            nav.clicked.connect(lambda _checked=False, i=index: self.open_page(i))
+            nav.clicked.connect(lambda _checked=False, i=index: self.navigate(i))
+            nav.setToolTip(f"{title} · Ctrl+{index + 1}")
+            action = QAction(title, self)
+            action.setAutoRepeat(False)
+            action.setShortcut(QKeySequence(f"Ctrl+{index + 1}"))
+            action.triggered.connect(lambda _checked=False, i=index: self.navigate(i))
+            self.addAction(action)
+            self.navigation_actions.append(action)
             self.nav_group.addButton(nav, index)
             buttons_layout.addWidget(nav)
         self.nav_group.button(0).setChecked(True)
         buttons_layout.addStretch()
+        nav_layout.addWidget(button("키보드 안내 · F1", self.show_keyboard_help))
         nav_layout.addWidget(label("인터넷 없이도 함께해요\n내 컴퓨터에만 저장", "muted"))
         nav_layout.addSpacing(10)
         nav_layout.addWidget(label(f"v{VERSION} · 초기 버전", "muted"))
@@ -150,6 +150,15 @@ class ManagementWindow(QMainWindow):
         self.character_page = CharacterPage(characters)
         self.pages.addWidget(self.character_page)
         self._make_settings(data_dir)
+        for title, key, callback in (
+            ("채팅 입력으로 이동", "Ctrl+L", lambda: self.navigate(self.CHAT_PAGE)),
+            ("키보드 안내", "F1", self.show_keyboard_help),
+        ):
+            action = QAction(title, self)
+            action.setAutoRepeat(False)
+            action.setShortcut(QKeySequence(key))
+            action.triggered.connect(callback)
+            self.addAction(action)
         planning.changed.connect(self.refresh_planning)
         self.refresh_planning()
         service.changed.connect(self.refresh)
@@ -215,7 +224,8 @@ class ManagementWindow(QMainWindow):
         self.greeting = label("", "heading")
         words.addWidget(self.greeting)
         words.addWidget(label("불러 주면 반갑게 인사해요.\n원하는 곳으로 살짝 옮겨 보세요."))
-        words.addWidget(button("캐릭터와 인사하기", self.greet_requested.emit, True))
+        self.greet_button = button("캐릭터와 인사하기", self.greet_requested.emit, True)
+        words.addWidget(self.greet_button)
         hero_layout.addLayout(words, 1)
         body.addWidget(hero)
         frame, content = card("오늘을 가볍게 준비해요")
@@ -319,6 +329,7 @@ class ManagementWindow(QMainWindow):
         frame, content = card("캘린더와 알림")
         form = QFormLayout()
         self.week_combo = QComboBox()
+        self.week_combo.setAccessibleName("한 주의 시작 요일")
         self.week_combo.addItem("일요일부터", 6)
         self.week_combo.addItem("월요일부터", 0)
         self.week_combo.currentIndexChanged.connect(
@@ -339,7 +350,9 @@ class ManagementWindow(QMainWindow):
         for widget in (self.notifications_check, self.pause_notifications, self.quiet_check):
             content.addWidget(widget)
         self.quiet_start = QTimeEdit()
+        self.quiet_start.setAccessibleName("방해 금지 시작 시각")
         self.quiet_end = QTimeEdit()
+        self.quiet_end.setAccessibleName("방해 금지 종료 시각")
         for widget in (self.quiet_start, self.quiet_end):
             widget.setDisplayFormat("HH:mm")
         self.quiet_start.timeChanged.connect(
@@ -473,6 +486,34 @@ class ManagementWindow(QMainWindow):
         self.ensure_visible_position()
         self.raise_()
         self.activateWindow()
+
+    def navigate(self, index: int) -> None:
+        self.open_page(index)
+        targets = (
+            self.greet_button,
+            self.today_page.quick_title,
+            self.calendar_page.date_edit,
+            self.focus_page.start_button
+            if self.focus_page.start_button.isEnabled()
+            else self.focus_page.pause_button
+            if self.focus_page.pause_button.isVisible()
+            else self.focus_page.resume_button,
+            self.statistics_page.period,
+            self.companion_page.checks["record_focus"],
+            self.chat_page.input,
+            self.character_page.state,
+            self.name_edit,
+        )
+        targets[index].setFocus(Qt.FocusReason.ShortcutFocusReason)
+
+    def show_keyboard_help(self) -> None:
+        previous_focus = QApplication.focusWidget()
+        dialog = KeyboardHelp(self)
+        dialog.exec()
+        dialog.deleteLater()
+        self.activateWindow()
+        if previous_focus is not None and previous_focus.isVisible() and previous_focus.isEnabled():
+            previous_focus.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def showEvent(self, event) -> None:
         super().showEvent(event)

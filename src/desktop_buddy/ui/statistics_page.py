@@ -33,6 +33,7 @@ class DailyChart(QWidget):
     def set_values(self, values) -> None:
         self.values = values
         self.setToolTip("\n".join(f"{day}  {duration(value)}" for day, value in values))
+        self.setAccessibleDescription(self.toolTip())
         self.update()
 
     def paintEvent(self, _event) -> None:
@@ -90,6 +91,7 @@ class StatisticsPage(QScrollArea):
             totals.append(frame)
         body.addWidget(ResponsiveGrid(totals, (4, 2, 1), 140))
         self.period = QComboBox()
+        self.period.setAccessibleName("공부 통계 기간")
         self.period.addItem("최근 7일", "7")
         self.period.addItem("최근 30일", "30")
         self.period.addItem("아래 달력의 한 달", "month")
@@ -107,7 +109,9 @@ class StatisticsPage(QScrollArea):
         body.addWidget(frame)
         groups = []
         self.category_table = self.group_table()
+        self.category_table.setAccessibleName("분류별 집중 시간")
         self.task_table = self.group_table()
+        self.task_table.setAccessibleName("할 일별 집중 시간")
         for title, table in [
             ("분류별 집중", self.category_table),
             ("할 일별 집중", self.task_table),
@@ -118,6 +122,7 @@ class StatisticsPage(QScrollArea):
         body.addWidget(ResponsiveGrid(groups, (2, 1), 260))
         frame, content = card("공부 달력")
         self.calendar = QCalendarWidget()
+        self.calendar.setAccessibleName("공부 시간 달력")
         self.calendar.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
         self.calendar.setMinimumHeight(270)
         self.calendar.currentPageChanged.connect(self.month_changed)
@@ -131,6 +136,7 @@ class StatisticsPage(QScrollArea):
         body.addWidget(frame)
         frame, content = card("집중 기록 · 선택 기간의 최근 100개")
         self.records = QTableWidget(0, 7)
+        self.records.setAccessibleName("집중 기록 목록")
         self.records.setHorizontalHeaderLabels(
             ["시작", "할 일 · 분류", "예정", "실제", "멈춤", "상태", "기록 ID"]
         )
@@ -147,6 +153,7 @@ class StatisticsPage(QScrollArea):
         content.addWidget(self.records)
         row = QHBoxLayout()
         self.edit_category = QComboBox()
+        self.edit_category.setAccessibleName("선택 기록에 적용할 분류")
         compact_combo(self.edit_category)
         content.addWidget(self.edit_category)
         row.addWidget(button("선택 기록 분류 변경", self.change_category))

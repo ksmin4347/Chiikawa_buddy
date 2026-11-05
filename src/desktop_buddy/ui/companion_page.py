@@ -55,6 +55,7 @@ class CompanionPage(QScrollArea):
             ("emotion_message_days", "짧은 안부 간격 · 0은 끄기", 0, 30, " 일"),
         ]:
             spin = QSpinBox()
+            spin.setAccessibleName(title)
             spin.setRange(lower, upper)
             spin.setSuffix(suffix)
             spin.valueChanged.connect(lambda value, key=key: settings.update(**{key: value}))
@@ -76,6 +77,7 @@ class CompanionPage(QScrollArea):
         self.weekdays = []
         for title in "월화수목금토일":
             check = QCheckBox(title)
+            check.setAccessibleName(f"{title}요일 쉬기")
             check.toggled.connect(self.save_weekdays)
             self.weekdays.append(check)
             row.addWidget(check)
@@ -83,7 +85,9 @@ class CompanionPage(QScrollArea):
         row = QHBoxLayout()
         today = companion.clock.now().astimezone(companion.focus.planning.zone).date()
         self.rest_start = QDateEdit(QDate(today))
+        self.rest_start.setAccessibleName("휴식 기간 시작일")
         self.rest_end = QDateEdit(QDate(today))
+        self.rest_end.setAccessibleName("휴식 기간 종료일")
         for widget in (self.rest_start, self.rest_end):
             widget.setCalendarPopup(True)
             widget.setDisplayFormat("yyyy-MM-dd")
@@ -93,6 +97,7 @@ class CompanionPage(QScrollArea):
         row.addWidget(button("휴식 기간 추가", self.add_rest))
         content.addLayout(row)
         self.periods = QTableWidget(0, 2)
+        self.periods.setAccessibleName("저장한 휴식 기간 목록")
         self.periods.setHorizontalHeaderLabels(["시작일", "종료일 · 이 날까지 쉬어요"])
         self.periods.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.periods.verticalHeader().hide()
@@ -115,6 +120,7 @@ class CompanionPage(QScrollArea):
         form = QFormLayout()
         for key, title in [("sleep_start", "잠드는 시간"), ("sleep_end", "깨어나는 시간")]:
             widget = QTimeEdit()
+            widget.setAccessibleName(title)
             widget.setDisplayFormat("HH:mm")
             widget.timeChanged.connect(
                 lambda value, key=key: settings.update(**{key: value.toString("HH:mm")})
@@ -122,6 +128,7 @@ class CompanionPage(QScrollArea):
             self.times[key] = widget
             form.addRow(title, widget)
         self.appearance = QComboBox()
+        self.appearance.setAccessibleName("집중 중 캐릭터 표시 방식")
         for title, value in [
             ("평소대로", "normal"),
             ("움직임을 천천히", "calm"),
@@ -157,6 +164,7 @@ class CompanionPage(QScrollArea):
         self.add_check(content, "briefing_on_start", "앱을 시작할 때도 오늘 브리핑 받기")
         self.add_check(content, "briefing_detailed", "할 일·마감·공부 계획까지 자세히 표시")
         self.briefing_time = QTimeEdit()
+        self.briefing_time.setAccessibleName("하루 브리핑 시각")
         self.briefing_time.setDisplayFormat("HH:mm")
         self.briefing_time.timeChanged.connect(
             lambda value: settings.update(briefing_time=value.toString("HH:mm"))

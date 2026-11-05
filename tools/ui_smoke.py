@@ -25,6 +25,7 @@ from desktop_buddy.database.store import Store
 from desktop_buddy.models.planning import CalendarEvent, Task
 from desktop_buddy.services.single_instance import SingleInstance
 from desktop_buddy.ui.common import fit_window
+from desktop_buddy.ui.keyboard_help import KeyboardHelp
 from desktop_buddy.ui.planning_dialogs import CategoryDialog, ItemEditor, ScopeDialog
 
 app = QApplication([])
@@ -175,6 +176,13 @@ for theme in ("light", "dark"):
     results["pages"][theme + "-chat-confirm"] = inspect(buddy.manager)
     buddy.manager.grab().save(str(output / f"{theme}-chat-confirm.png"))
     buddy.chat.cancel()
+    help_dialog = KeyboardHelp(buddy.manager)
+    help_dialog.show()
+    settle()
+    results["pages"][theme + "-keyboard-help"] = inspect(help_dialog)
+    help_dialog.grab().save(str(output / f"{theme}-keyboard-help.png"))
+    help_dialog.close()
+    help_dialog.deleteLater()
 
 buddy.settings.update(theme="light")
 results["logo"] = {

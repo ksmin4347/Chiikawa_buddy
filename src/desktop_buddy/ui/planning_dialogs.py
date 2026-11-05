@@ -129,6 +129,7 @@ class ItemEditor(QDialog):
             self.start_enabled.setChecked(record.start_time is not None)
             initial_time = record.start_time or time(9)
             self.time_edit = QTimeEdit(QTime(initial_time.hour, initial_time.minute))
+            self.time_edit.setAccessibleName("할 일 시작 시각")
             self.time_edit.setDisplayFormat("HH:mm")
             row = QHBoxLayout()
             row.addWidget(self.start_enabled)
@@ -144,6 +145,7 @@ class ItemEditor(QDialog):
                 else record.start.replace(hour=18)
             )
             self.due_edit = QDateTimeEdit(qdatetime(due))
+            self.due_edit.setAccessibleName("할 일 마감 날짜와 시각")
             self.due_edit.setCalendarPopup(True)
             self.due_edit.setDisplayFormat("yyyy-MM-dd HH:mm")
             row = QHBoxLayout()
@@ -153,6 +155,7 @@ class ItemEditor(QDialog):
             self.due_enabled.toggled.connect(self.due_edit.setEnabled)
             self.due_edit.setEnabled(self.due_enabled.isChecked())
             self.priority = QComboBox()
+            self.priority.setAccessibleName("할 일 우선순위")
             for title, value in [("높음", 2), ("보통", 1), ("낮음", 0)]:
                 self.priority.addItem(title, value)
             self.priority.setCurrentIndex(self.priority.findData(record.priority))
@@ -183,6 +186,7 @@ class ItemEditor(QDialog):
         row.addWidget(button("관리", lambda: CategoryDialog(service, self).exec()))
         form.addRow("카테고리", row)
         self.reminder = QComboBox()
+        self.reminder.setAccessibleName("사전 알림 시점")
         for title, value in [
             ("알림 없음", None),
             ("정시", 0),
@@ -300,9 +304,11 @@ class CategoryDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addWidget(label("카테고리", "heading"))
         self.items = QListWidget()
+        self.items.setAccessibleName("카테고리 목록")
         self.items.currentRowChanged.connect(self._select)
         layout.addWidget(self.items)
         self.name_edit = QLineEdit()
+        self.name_edit.setAccessibleName("카테고리 이름")
         self.name_edit.setMaxLength(30)
         self.name_edit.setPlaceholderText("카테고리 이름")
         layout.addWidget(self.name_edit)
@@ -340,6 +346,7 @@ class CategoryDialog(QDialog):
             self._color_style()
 
     def _color_style(self):
+        self.color_button.setAccessibleDescription("선택한 색상 " + self.color)
         foreground = "#ffffff" if QColor(self.color).lightness() < 145 else "#18251d"
         self.color_button.setStyleSheet(f"background:{self.color};color:{foreground};")
 

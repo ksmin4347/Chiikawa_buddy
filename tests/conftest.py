@@ -1,15 +1,22 @@
 import gc
 import os
+from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
 
 @pytest.fixture(scope="session")
 def qapp():
     app = QApplication.instance() or QApplication([])
+    for name in ("malgun.ttf", "malgunbd.ttf"):
+        font = Path(os.environ.get("WINDIR", "C:/Windows")) / "Fonts" / name
+        if font.exists():
+            QFontDatabase.addApplicationFont(str(font))
+    app.setFont(QFont("Malgun Gothic", 10))
     app.setQuitOnLastWindowClosed(False)
     yield app
 

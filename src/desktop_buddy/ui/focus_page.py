@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop_buddy.ui.common import button, card, label
+from desktop_buddy.ui.common import button, card, compact_combo, label, wrap_form
 from desktop_buddy.ui.mini_timer import PHASE_NAMES, countdown, duration
 from desktop_buddy.ui.planning_dialogs import confirm_delete
 
@@ -71,6 +71,7 @@ class FocusPage(QScrollArea):
         body.addWidget(frame)
         frame, content = card("시작할 시간과 할 일")
         form = QFormLayout()
+        wrap_form(form)
         self.kind = QComboBox()
         for key, title in PHASE_NAMES.items():
             self.kind.addItem(title, key)
@@ -101,6 +102,7 @@ class FocusPage(QScrollArea):
         )
         self.task.currentIndexChanged.connect(self.select_task)
         self.category = QComboBox()
+        compact_combo(self.category)
         form.addRow("할 일 날짜", self.task_date)
         form.addRow("연결할 할 일", self.task)
         form.addRow("집중 분류", self.category)
@@ -111,6 +113,7 @@ class FocusPage(QScrollArea):
         body.addWidget(frame)
         frame, content = card("뽀모도로와 표시 설정")
         form = QFormLayout()
+        wrap_form(form)
         self.config_spins = {}
         for field, title, upper in [
             ("focus_minutes", "기본 집중", 1440),

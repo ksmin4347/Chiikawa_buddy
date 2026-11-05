@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop_buddy.ui.common import button, label
+from desktop_buddy.ui.common import ElidedButton, button, label
 from desktop_buddy.ui.timeline import TimelineView
 
 
@@ -36,12 +36,12 @@ class DayCell(QFrame):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 2, 5, 2)
         layout.setSpacing(1)
-        day_button = button(
-            str(day.day) + (" · 오늘" if day == today else ""), lambda: self.selected.emit(day)
-        )
+        day_button = button(str(day.day), lambda: self.selected.emit(day))
         day_button.setObjectName("dayNumber")
         day_button.setFixedHeight(22)
-        day_button.setToolTip(day.isoformat())
+        day_button.setProperty("today", day == today)
+        day_button.setToolTip(day.isoformat() + (" · 오늘" if day == today else ""))
+        day_button.setAccessibleName(day_button.toolTip())
         if day.weekday() == 6:
             day_button.setProperty("sunday", True)
         elif day.weekday() == 5:
@@ -55,14 +55,18 @@ class DayCell(QFrame):
                 else (value.start.strftime("%H:%M ") if not value.all_day else "")
             )
             text = prefix + value.title
-            entry = button(text, lambda: self.occurrence_clicked.emit(value))
+            entry = ElidedButton(text)
+            entry.clicked.connect(lambda: self.occurrence_clicked.emit(value))
             entry.setObjectName("calendarEntry")
             entry.setFixedHeight(20)
             entry.setToolTip(escape(text))
             entry.setStyleSheet(f"border-left:3px solid {value.color};")
             layout.addWidget(entry)
             if len(occurrences) > 1:
-                more = button(f"+ {len(occurrences) - 1}개 더", lambda: self.selected.emit(day))
+                more = ElidedButton(f"+{len(occurrences) - 1}")
+                more.clicked.connect(lambda: self.selected.emit(day))
+                more.setToolTip(f"{len(occurrences) - 1}개 항목 더 보기")
+                more.setAccessibleName(more.toolTip())
                 more.setObjectName("calendarMore")
                 more.setFixedHeight(18)
                 layout.addWidget(more)
@@ -110,6 +114,8 @@ class CalendarPage(QWidget):
         row.addWidget(button("오늘", self.go_today))
         row.addWidget(following)
         row.addWidget(self.period_label, 1)
+        layout.addLayout(row)
+        row = QHBoxLayout()
         self.mode_combo = QComboBox()
         for text, value in [("월간", "month"), ("주간", "week"), ("일간", "day")]:
             self.mode_combo.addItem(text, value)
@@ -124,6 +130,7 @@ class CalendarPage(QWidget):
         self.month_table.verticalHeader().hide()
         self.month_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.month_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.month_table.verticalHeader().setMinimumSectionSize(72)
         self.month_table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self.month_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.month_table.setMinimumHeight(300)
@@ -151,8 +158,8 @@ class CalendarPage(QWidget):
         for widget in [self.edit_button, self.delete_button, self.complete_button]:
             row.addWidget(widget)
         row.addStretch()
-        row.addWidget(label("반복 항목 지원 · 날짜 빈 곳 더블클릭으로 일정 추가", "muted"))
         layout.addLayout(row)
+        layout.addWidget(label("반복 항목 지원 · 날짜 빈 곳 더블클릭으로 일정 추가", "muted"))
         self.error_label = label("", "muted")
         layout.addWidget(self.error_label)
         service.changed.connect(self.refresh)

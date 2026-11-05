@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_buddy.calendar.layout import arrange_intervals
-from desktop_buddy.ui.common import button
+from desktop_buddy.ui.common import ElidedButton
 
 
 class EventBlock(QGraphicsRectItem):
@@ -93,7 +93,9 @@ class TimelineView(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         for day in days:
-            caption = QLabel(f"{day.month}/{day.day} ( {'월화수목금토일'[day.weekday()]} )")
+            caption = QLabel(f"{day.month}/{day.day}\n{'월화수목금토일'[day.weekday()]}")
+            caption.setToolTip(day.isoformat())
+            caption.setWordWrap(True)
             caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.header.addWidget(caption, 1)
         while self.all_day_strip.count():
@@ -115,8 +117,9 @@ class TimelineView(QWidget):
             box.setSpacing(2)
             values = [value for value in occurrences if value.all_day and value.appears_on(day)]
             for value in values[:2]:
-                entry = button(
-                    value.title, lambda _checked=False, v=value: self.occurrence_clicked.emit(v)
+                entry = ElidedButton(value.title)
+                entry.clicked.connect(
+                    lambda _checked=False, v=value: self.occurrence_clicked.emit(v)
                 )
                 entry.setObjectName("calendarEntry")
                 entry.setFixedHeight(22)
@@ -124,11 +127,12 @@ class TimelineView(QWidget):
                 entry.setStyleSheet(f"border-left: 3px solid {value.color};")
                 box.addWidget(entry)
             if len(values) > 2:
-                more = button(
-                    f"+ {len(values) - 2}개",
-                    lambda _checked=False, d=day: self.day_selected.emit(d),
-                )
+                more = ElidedButton(f"+{len(values) - 2}")
+                more.clicked.connect(lambda _checked=False, d=day: self.day_selected.emit(d))
                 more.setObjectName("calendarMore")
+                more.setFixedHeight(22)
+                more.setToolTip(f"{len(values) - 2}개 항목 더 보기")
+                more.setAccessibleName(more.toolTip())
                 box.addWidget(more)
             box.addStretch()
             self.all_day_strip.addWidget(cell, 1)
@@ -175,7 +179,7 @@ class TimelineView(QWidget):
                 rect = QRectF(
                     x + 3 + position.lane * lane_width,
                     top + position.start / 60 * step,
-                    max(8, lane_width - 3),
+                    lane_width - min(3, lane_width * 0.2),
                     max(0.5, (position.end - position.start) / 60 * step - 1),
                 )
                 color = (

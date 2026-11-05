@@ -1,4 +1,5 @@
 from datetime import timedelta
+from html import escape
 
 from PySide6.QtCore import QDate, QSignalBlocker, Qt, QTimer
 from PySide6.QtGui import QColor
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_buddy.models.planning import Task
-from desktop_buddy.ui.common import button, label
+from desktop_buddy.ui.common import button, compact_combo, label
 
 
 class TodayPage(QWidget):
@@ -57,6 +58,7 @@ class TodayPage(QWidget):
         self.filter_combo.currentIndexChanged.connect(self.refresh)
         row.addWidget(self.filter_combo)
         self.category_filter = QComboBox()
+        compact_combo(self.category_filter, 6)
         self.category_filter.setAccessibleName("카테고리 필터")
         self.category_filter.currentIndexChanged.connect(self.refresh)
         row.addWidget(self.category_filter, 1)
@@ -212,7 +214,7 @@ class TodayPage(QWidget):
                 title = f"{occurrence.start:%m.%d}  {title}"
             item = QTableWidgetItem(title)
             item.setData(Qt.ItemDataRole.UserRole, occurrence)
-            item.setToolTip(occurrence.record.description or occurrence.title)
+            item.setToolTip(escape(occurrence.title + "\n" + occurrence.record.description))
             font = item.font()
             font.setStrikeOut(occurrence.completed)
             item.setFont(font)
@@ -227,6 +229,7 @@ class TodayPage(QWidget):
                 occurrence.category.name if occurrence.category else "분류 없음"
             )
             category.setForeground(QColor(occurrence.color))
+            category.setToolTip(escape(category.text()))
             self.table.setItem(row, 3, category)
             self.table.setItem(
                 row, 4, QTableWidgetItem({0: "낮음", 1: "보통", 2: "높음"}[record.priority])

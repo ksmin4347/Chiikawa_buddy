@@ -1,6 +1,7 @@
 import calendar
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from html import escape
 
 from PySide6.QtCore import QDate, QRectF, Qt, QTimer
 from PySide6.QtGui import QColor, QPainter, QTextCharFormat
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop_buddy.ui.common import button, card, label
+from desktop_buddy.ui.common import ResponsiveGrid, button, card, compact_combo, label
 from desktop_buddy.ui.mini_timer import duration
 from desktop_buddy.ui.planning_dialogs import confirm_delete
 
@@ -79,15 +80,15 @@ class StatisticsPage(QScrollArea):
         body.setSpacing(18)
         body.addWidget(label("차곡차곡 쌓인 나의 시간", "title"))
         body.addWidget(label("일시정지와 휴식을 제외한 실제 집중 시간이에요.", "muted"))
-        row = QHBoxLayout()
+        totals = []
         self.total_labels = []
         for title in ("오늘", "이번 주", "이번 달", "전체 누적"):
             frame, content = card(title)
             value = label("0분", "heading")
             content.addWidget(value)
             self.total_labels.append(value)
-            row.addWidget(frame)
-        body.addLayout(row)
+            totals.append(frame)
+        body.addWidget(ResponsiveGrid(totals, (4, 2, 1), 140))
         self.period = QComboBox()
         self.period.addItem("최근 7일", "7")
         self.period.addItem("최근 30일", "30")
@@ -104,7 +105,7 @@ class StatisticsPage(QScrollArea):
         content.addWidget(self.summary)
         content.addWidget(self.chart)
         body.addWidget(frame)
-        row = QHBoxLayout()
+        groups = []
         self.category_table = self.group_table()
         self.task_table = self.group_table()
         for title, table in [
@@ -113,8 +114,8 @@ class StatisticsPage(QScrollArea):
         ]:
             frame, content = card(title)
             content.addWidget(table)
-            row.addWidget(frame)
-        body.addLayout(row)
+            groups.append(frame)
+        body.addWidget(ResponsiveGrid(groups, (2, 1), 260))
         frame, content = card("공부 달력")
         self.calendar = QCalendarWidget()
         self.calendar.setVerticalHeaderFormat(QCalendarWidget.VerticalHeaderFormat.NoVerticalHeader)
@@ -146,7 +147,8 @@ class StatisticsPage(QScrollArea):
         content.addWidget(self.records)
         row = QHBoxLayout()
         self.edit_category = QComboBox()
-        row.addWidget(self.edit_category)
+        compact_combo(self.edit_category)
+        content.addWidget(self.edit_category)
         row.addWidget(button("선택 기록 분류 변경", self.change_category))
         row.addWidget(button("선택 기록 삭제", self.delete))
         content.addLayout(row)
@@ -184,6 +186,7 @@ class StatisticsPage(QScrollArea):
         table.setRowCount(len(groups))
         for index, (name, seconds) in enumerate(sorted(groups.items(), key=lambda v: -v[1])):
             table.setItem(index, 0, QTableWidgetItem(name))
+            table.item(index, 0).setToolTip(escape(name))
             table.setItem(index, 1, QTableWidgetItem(duration(seconds)))
 
     def invalidate(self, *_args) -> None:
@@ -283,6 +286,8 @@ class StatisticsPage(QScrollArea):
             self.calendar.setDateTextFormat(QDate(day), formatting)
         self.select_day()
         selected_id = self.selected_id()
+        self.records.clearSelection()
+        self.records.setCurrentCell(-1, -1)
         self.records.setRowCount(len(data["records"]))
         for index, record in enumerate(data["records"]):
             when = datetime.fromisoformat(record["started_at"]).astimezone(self.planning.zone)
@@ -300,6 +305,7 @@ class StatisticsPage(QScrollArea):
             ]
             for column, text in enumerate(texts):
                 self.records.setItem(index, column, QTableWidgetItem(text))
+                self.records.item(index, column).setToolTip(escape(text))
             if record["id"] == selected_id:
                 self.records.selectRow(index)
         old_category = self.edit_category.currentData()

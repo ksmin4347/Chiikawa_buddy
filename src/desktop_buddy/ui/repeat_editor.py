@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_buddy.calendar.recurrence import WEEKDAYS, encode, parts
+from desktop_buddy.ui.common import wrap_form
 
 
 class RepeatEditor(QWidget):
@@ -19,6 +20,7 @@ class RepeatEditor(QWidget):
         super().__init__(parent)
         self.zone = start.tzinfo
         form = QFormLayout(self)
+        wrap_form(form)
         form.setContentsMargins(0, 0, 0, 0)
         self.frequency = QComboBox()
         for title, value in [

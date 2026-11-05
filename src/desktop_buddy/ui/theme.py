@@ -78,6 +78,7 @@ def apply_theme(app: QApplication, theme: str) -> None:
             text-align: left; background: transparent; font-size: 12px; }}
         QPushButton#dayNumber[sunday='true'] {{ color: #bb514b; }}
         QPushButton#dayNumber[saturday='true'] {{ color: #5478b0; }}
+        QPushButton#dayNumber[today='true'] {{ color: {accent}; font-weight: 700; }}
         QPushButton#calendarEntry, QPushButton#calendarMore {{ padding: 0 3px;
             min-height: 0; border: 0; border-radius: 3px; background: transparent;
             text-align: left; font-size: 12px; font-weight: 400; }}

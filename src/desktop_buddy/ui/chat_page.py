@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPlainTextEdit,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -247,6 +248,17 @@ class ChatPage(QWidget):
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self.transcript.setTextCursor(cursor)
         self.transcript.ensureCursorVisible()
+        # The outer scroll area needs another layout pass after the card appears.
+        QTimer.singleShot(0, self, self._reveal_input)
+
+    def _reveal_input(self):
+        parent = self.parentWidget()
+        while parent is not None:
+            if isinstance(parent, QScrollArea):
+                parent.ensureWidgetVisible(self.input, 8, 8)
+                corner = self.input.mapTo(parent.widget(), self.input.rect().bottomRight())
+                parent.ensureVisible(corner.x(), corner.y(), 8, 12)
+            parent = parent.parentWidget()
 
     def _load_more(self):
         if not self._rows:

@@ -135,6 +135,7 @@ class BuddyApplication:
         guard.activation_requested.connect(self._activate_existing)
         app.screenAdded.connect(self._screen_added)
         app.screenRemoved.connect(self.pet.ensure_visible_position)
+        app.screenRemoved.connect(self.manager.ensure_visible_position)
         for screen in QGuiApplication.screens():
             self._screen_added(screen)
         self.planning.task_completed.connect(self._task_completed)
@@ -303,6 +304,9 @@ class BuddyApplication:
         screen.availableGeometryChanged.connect(self.pet.ensure_visible_position)
         screen.geometryChanged.connect(self.pet.ensure_visible_position)
         screen.logicalDotsPerInchChanged.connect(self.pet.ensure_visible_position)
+        screen.availableGeometryChanged.connect(self.manager.ensure_visible_position)
+        screen.geometryChanged.connect(self.manager.ensure_visible_position)
+        screen.logicalDotsPerInchChanged.connect(self.manager.ensure_visible_position)
         if self.pet.isVisible():
             self.pet.ensure_visible_position()
 
@@ -340,10 +344,15 @@ class BuddyApplication:
 
     def _save_error(self, message: str) -> None:
         logging.getLogger(__name__).warning("Settings save failed")
+        if self._closed:
+            return
         self.manager.save_status.setText(message)
         self.manager.statusBar().showMessage(message, 15000)
         self.manager.open_page(self.manager.SETTINGS_PAGE)
         self.manager.refresh(self.settings.current)
+        self.manager.focus_page.refresh_settings(self.settings.current)
+        self.manager.companion_page.refresh_settings(self.settings.current)
+        self.manager.character_page.refresh()
         self.manager.save_status.setText(message)
 
     def _manager_closed(self) -> None:
@@ -419,6 +428,7 @@ class BuddyApplication:
             (self.app.aboutToQuit, self.shutdown),
             (self.app.screenAdded, self._screen_added),
             (self.app.screenRemoved, self.pet.ensure_visible_position),
+            (self.app.screenRemoved, self.manager.ensure_visible_position),
         ):
             try:
                 signal.disconnect(callback)

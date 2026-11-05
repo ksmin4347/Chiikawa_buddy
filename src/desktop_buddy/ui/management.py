@@ -27,7 +27,7 @@ from desktop_buddy.services.settings_service import SettingsService
 from desktop_buddy.ui.calendar_page import CalendarPage
 from desktop_buddy.ui.character_page import CharacterPage
 from desktop_buddy.ui.chat_page import ChatPage
-from desktop_buddy.ui.common import button, card, label
+from desktop_buddy.ui.common import button, card, fit_window, label, scroll_page, wrap_form
 from desktop_buddy.ui.companion_page import CompanionPage
 from desktop_buddy.ui.focus_page import FocusPage
 from desktop_buddy.ui.planning_actions import PlanningActions
@@ -70,7 +70,7 @@ class ManagementWindow(QMainWindow):
         self.setWindowTitle(f"{APP_NAME} · 관리창")
         self.setWindowIcon(QIcon(str(asset_directory() / "icons" / "buddy.ico")))
         self.resize(960, 760)
-        self.setMinimumSize(720, 560)
+        self.setMinimumSize(720, 480)
         root = QWidget()
         self.setCentralWidget(root)
         layout = QHBoxLayout(root)
@@ -135,9 +135,9 @@ class ManagementWindow(QMainWindow):
         layout.addWidget(self.pages, 1)
         self._make_home(preview)
         self.today_page = TodayPage(planning, self.actions)
-        self.pages.addWidget(self.today_page)
+        self.pages.addWidget(scroll_page(self.today_page))
         self.calendar_page = CalendarPage(planning, service, self.actions)
-        self.pages.addWidget(self.calendar_page)
+        self.pages.addWidget(scroll_page(self.calendar_page))
         self.focus_page = FocusPage(timer, planning, service)
         self.pages.addWidget(self.focus_page)
         self.statistics_page = StatisticsPage(statistics, planning)
@@ -146,7 +146,7 @@ class ManagementWindow(QMainWindow):
         self.companion_page.briefing_requested.connect(self.briefing_requested.emit)
         self.pages.addWidget(self.companion_page)
         self.chat_page = ChatPage(chat)
-        self.pages.addWidget(self.chat_page)
+        self.pages.addWidget(scroll_page(self.chat_page))
         self.character_page = CharacterPage(characters)
         self.pages.addWidget(self.character_page)
         self._make_settings(data_dir)
@@ -263,6 +263,7 @@ class ManagementWindow(QMainWindow):
         body.addWidget(label("변경사항은 바로 적용되고 이 컴퓨터에 저장돼요.", "muted"))
         frame, content = card("캐릭터")
         form = QFormLayout()
+        wrap_form(form)
         form.setHorizontalSpacing(28)
         form.setVerticalSpacing(12)
         self.name_edit = QLineEdit()
@@ -466,9 +467,20 @@ class ManagementWindow(QMainWindow):
             self.companion_page.refresh(self.companion_page.companion.snapshot)
         self.pages.setCurrentIndex(index)
         self.nav_group.button(index).setChecked(True)
-        self.showNormal()
+        if self.isMinimized():
+            self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+        self.show()
+        self.ensure_visible_position()
         self.raise_()
         self.activateWindow()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        self.ensure_visible_position()
+
+    def ensure_visible_position(self, *_args) -> None:
+        if self.isVisible():
+            fit_window(self)
 
     def closeEvent(self, event) -> None:
         if self.allow_close:

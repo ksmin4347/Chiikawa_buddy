@@ -233,11 +233,18 @@ class CompanionPage(QScrollArea):
         self.refresh_periods()
 
     def refresh_periods(self) -> None:
+        index = self.periods.currentRow()
+        old_rows = getattr(self, "rows", [])
+        selected_id = old_rows[index]["id"] if 0 <= index < len(old_rows) else None
         self.rows = self.companion.repository.periods()
+        self.periods.clearSelection()
+        self.periods.setCurrentCell(-1, -1)
         self.periods.setRowCount(len(self.rows))
         for index, row in enumerate(self.rows):
             self.periods.setItem(index, 0, QTableWidgetItem(row["start_date"].isoformat()))
             self.periods.setItem(index, 1, QTableWidgetItem(row["end_date"].isoformat()))
+            if row["id"] == selected_id:
+                self.periods.selectRow(index)
 
     def confirm_clock(self) -> None:
         try:

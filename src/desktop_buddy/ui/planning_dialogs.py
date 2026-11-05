@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_buddy.models.planning import Record, Task, aware
-from desktop_buddy.ui.common import button, label
+from desktop_buddy.ui.common import button, compact_combo, fit_window, label, wrap_form
 from desktop_buddy.ui.repeat_editor import RepeatEditor
 
 
@@ -99,6 +99,7 @@ class ItemEditor(QDialog):
         area.setWidgetResizable(True)
         content = QWidget()
         form = QFormLayout(content)
+        wrap_form(form)
         form.setContentsMargins(18, 18, 18, 18)
         form.setVerticalSpacing(12)
         self.title_edit = QLineEdit(record.title)
@@ -173,6 +174,7 @@ class ItemEditor(QDialog):
             self._event_format()
             form.addRow("", label("종일 일정은 선택한 종료 날짜까지 포함해요.", "muted"))
         self.category_combo = QComboBox()
+        compact_combo(self.category_combo)
         self.category_combo.setAccessibleName("카테고리")
         self._categories(record.category_id)
         service.changed.connect(self._refresh_categories)
@@ -217,6 +219,10 @@ class ItemEditor(QDialog):
         buttons.accepted.connect(self._submit)
         outer.addWidget(buttons)
         self.title_edit.setFocus()
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
+        fit_window(self)
 
     def _event_format(self, *_args) -> None:
         value = "yyyy-MM-dd" if self.all_day.isChecked() else "yyyy-MM-dd HH:mm"

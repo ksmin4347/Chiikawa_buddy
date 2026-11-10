@@ -23,12 +23,27 @@ class ChatRepository:
         )
         return session_id
 
-    def append(self, session_id: str, role: str, body: str, character_id: str = "moru") -> int:
+    def append(
+        self,
+        session_id: str,
+        role: str,
+        body: str,
+        character_id: str = "moru",
+        mode: str = "offline",
+    ) -> int:
         cursor = self.connection.execute(
             "INSERT INTO chat_messages(session_id,role,body,created_at,"
-            "character_id,profile_version) "
-            "VALUES (?,?,?,?,?,?)",
-            (session_id, role, body, datetime.now(UTC).isoformat(), character_id, PROFILE_VERSION),
+            "character_id,profile_version,mode) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (
+                session_id,
+                role,
+                body,
+                datetime.now(UTC).isoformat(),
+                character_id,
+                PROFILE_VERSION,
+                mode,
+            ),
         )
         if role == "user":
             self.connection.execute(
@@ -62,6 +77,16 @@ class ChatRepository:
             self.connection.execute("DELETE FROM chat_sessions")
         else:
             self.connection.execute("DELETE FROM chat_sessions WHERE id=?", (session_id,))
+
+    def modes(self, session_id: str, message_ids: list[int]) -> dict[int, str]:
+        if not message_ids:
+            return {}
+        return dict(
+            self.connection.execute(
+                "SELECT id,mode FROM chat_messages WHERE session_id=? AND id BETWEEN ? AND ?",
+                (session_id, min(message_ids), max(message_ids)),
+            )
+        )
 
     def completed(self, operation_id: str) -> bool:
         return (

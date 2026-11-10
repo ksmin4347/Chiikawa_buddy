@@ -37,10 +37,19 @@ class SecretInputError(ValueError):
     pass
 
 
+def looks_secret(text: str, *, assignments: bool = True) -> bool:
+    return bool(
+        re.search(
+            r"\bsk-[A-Za-z0-9_-]{12,}|-----BEGIN .*PRIVATE KEY"
+            + (r"|api[_ -]?key\s*[:=]" if assignments else ""),
+            text,
+            re.I,
+        )
+    )
+
+
 def validate_input(text: str) -> str:
-    if re.search(
-        r"\bsk-[A-Za-z0-9_-]{12,}|-----BEGIN .*PRIVATE KEY|api[_ -]?key\s*[:=]", text, re.I
-    ):
+    if looks_secret(text):
         raise SecretInputError(
             "키로 보이는 내용은 채팅에 저장할 수 없어요. 설정의 API 키 관리를 사용해 주세요."
         )

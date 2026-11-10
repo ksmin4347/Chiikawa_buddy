@@ -6,6 +6,7 @@ of the screen's existing scale; report.json records the effective device ratio.
 
 # ruff: noqa: E402 -- Configure Qt and project imports before loading widgets.
 import argparse
+import asyncio
 import json
 import os
 import re
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QLabel, 
 
 from desktop_buddy.app import BuddyApplication
 from desktop_buddy.database.store import Store
+from desktop_buddy.models.online import OnlineResult
 from desktop_buddy.models.planning import CalendarEvent, Task
 from desktop_buddy.services.api_key_service import ApiKeyService
 from desktop_buddy.services.single_instance import SingleInstance
@@ -54,6 +56,22 @@ class QAKeyVault:
         self.value = None
 
 
+class QAResponses:
+    """UI states only: no HTTP or credential reads."""
+
+    delay = 0.001
+
+    async def run(self, vault, request, cancelled, *, before_send=None):
+        if before_send is not None:
+            await before_send()
+        await asyncio.sleep(self.delay)
+        return OnlineResult(
+            text="OK" if request.kind == "test" else "가짜 AI 답변으로 만든 화면이에요.",
+            input_tokens=7,
+            output_tokens=9,
+        )
+
+
 app = QApplication([])
 for font_file in ("malgun.ttf", "malgunbd.ttf"):
     QFontDatabase.addApplicationFont(
@@ -82,7 +100,16 @@ data.mkdir()
 guard = SingleInstance(data)
 assert guard.acquire()
 store = Store(data / "buddy.db")
-buddy = BuddyApplication(app, store, guard, data, show_onboarding=False)
+qa_vault, qa_responses = QAKeyVault(), QAResponses()
+buddy = BuddyApplication(
+    app,
+    store,
+    guard,
+    data,
+    show_onboarding=False,
+    api_keys=ApiKeyService(qa_vault),
+    online_client=qa_responses,
+)
 buddy.settings.update(briefing_enabled=False, sleep_enabled=False, quiet_enabled=False)
 buddy.characters.select("hachiware")
 planning = buddy.planning
@@ -231,8 +258,10 @@ for theme in ("light", "dark"):
     help_dialog.grab().save(str(output / f"{theme}-keyboard-help.png"))
     help_dialog.close()
     help_dialog.deleteLater()
-    vault = QAKeyVault()
-    key_dialog = ApiKeyDialog(ApiKeyService(vault), buddy.manager)
+    vault = qa_vault
+    vault.value, vault.fail = None, False
+    buddy.online.reset()
+    key_dialog = ApiKeyDialog(buddy.api_keys, buddy.manager, online=buddy.online)
     key_dialog.show()
     for phase in ("empty", "masked", "saved", "error"):
         canary = "not-a-real-key-for-qa-render"
@@ -249,8 +278,54 @@ for theme in ("light", "dark"):
         assert canary not in key_dialog.status.text()
         results["pages"][theme + "-api-key-" + phase] = inspect(key_dialog)
         key_dialog.grab().save(str(output / f"{theme}-api-key-{phase}.png"))
+    vault.fail = False
+    key_dialog.refresh_status()
+    qa_responses.delay = 2
+    key_dialog.test_connection()
+    settle()
+    results["pages"][theme + "-api-test-wait"] = inspect(key_dialog)
+    key_dialog.grab().save(str(output / f"{theme}-api-test-wait.png"))
+    buddy.online.cancel()
+    for _ in range(600):
+        settle()
+        if not buddy.online.busy:
+            break
+    assert not buddy.online.busy
+    qa_responses.delay = 0.001
+    key_dialog.test_connection()
+    for _ in range(600):
+        settle()
+        if not buddy.online.busy:
+            break
+    assert buddy.online.ready
+    results["pages"][theme + "-api-test-ready"] = inspect(key_dialog)
+    key_dialog.grab().save(str(output / f"{theme}-api-test-ready.png"))
     key_dialog.close()
     key_dialog.deleteLater()
+    buddy.manager.navigate(buddy.manager.CHAT_PAGE)
+    buddy.online.set_enabled(True)
+    qa_responses.delay = 2
+    buddy.manager.chat_page.input.setText("가짜 AI 화면 검증")
+    buddy.manager.chat_page.send_button.click()
+    settle()
+    results["pages"][theme + "-ai-wait"] = inspect(buddy.manager)
+    buddy.manager.grab().save(str(output / f"{theme}-ai-wait.png"))
+    buddy.online.cancel()
+    for _ in range(600):
+        settle()
+        if not buddy.online.busy:
+            break
+    assert not buddy.online.busy
+    qa_responses.delay = 0.001
+    buddy.manager.chat_page.send_button.click()
+    for _ in range(600):
+        settle()
+        if not buddy.online.busy:
+            break
+    results["pages"][theme + "-ai-reply"] = inspect(buddy.manager)
+    buddy.manager.grab().save(str(output / f"{theme}-ai-reply.png"))
+    buddy.online.set_enabled(False)
+    buddy.online.reset()
     vault.value = None
 
 buddy.settings.update(theme="light")

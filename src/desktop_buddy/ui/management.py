@@ -66,11 +66,13 @@ class ManagementWindow(QMainWindow):
         chat,
         characters,
         api_keys,
+        online,
     ):
         super().__init__()
         self.service = service
         self.planning = planning
         self.api_keys = api_keys
+        self.online = online
         self.actions = PlanningActions(planning, self)
         self.allow_close = False
         self.setWindowTitle(f"{APP_NAME} · 관리창")
@@ -165,7 +167,7 @@ class ManagementWindow(QMainWindow):
         self.companion_page = CompanionPage(companion, service)
         self.companion_page.briefing_requested.connect(self.briefing_requested.emit)
         self.pages.addWidget(self.companion_page)
-        self.chat_page = ChatPage(chat)
+        self.chat_page = ChatPage(chat, online, self.show_api_key_dialog)
         self.pages.addWidget(scroll_page(self.chat_page))
         self.character_page = CharacterPage(characters)
         self.pages.addWidget(self.character_page)
@@ -395,9 +397,11 @@ class ManagementWindow(QMainWindow):
         )
         content.addWidget(button("카테고리 관리", self.actions.manage_categories))
         body.addWidget(frame)
-        frame, content = card("AI 연결 준비")
-        content.addWidget(label("API 키 보관을 관리해요. 현재 대화는 오프라인 모드예요.", "muted"))
-        self.api_key_button = button("API 키 관리", self.show_api_key_dialog)
+        frame, content = card("AI 연결")
+        content.addWidget(
+            label("키·모델과 연결 테스트를 관리해요. 온라인 대화는 직접 켜요.", "muted")
+        )
+        self.api_key_button = button("API 키·연결 관리", self.show_api_key_dialog)
         content.addWidget(self.api_key_button)
         body.addWidget(frame)
         frame, content = card("데이터와 프로그램")
@@ -541,11 +545,16 @@ class ManagementWindow(QMainWindow):
         targets[index].setFocus(Qt.FocusReason.ShortcutFocusReason)
 
     def show_api_key_dialog(self) -> None:
-        dialog = ApiKeyDialog(self.api_keys, self)
+        dialog = ApiKeyDialog(self.api_keys, self, online=self.online)
         dialog.exec()
         dialog.deleteLater()
         self.activateWindow()
-        self.api_key_button.setFocus(Qt.FocusReason.OtherFocusReason)
+        target = (
+            self.api_key_button
+            if self.pages.currentIndex() == self.SETTINGS_PAGE
+            else self.chat_page.connection_button
+        )
+        target.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def show_keyboard_help(self) -> None:
         previous_focus = QApplication.focusWidget()

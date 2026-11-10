@@ -1,6 +1,6 @@
 from html import escape
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -25,6 +25,34 @@ def label(text: str, kind: str = "") -> QLabel:
     if kind:
         widget.setProperty("kind", kind)
     return widget
+
+
+class WrappedStatus(QLabel):
+    """Recompute dynamic status height inside scrollable pages."""
+
+    def __init__(self):
+        super().__init__()
+        self.setTextFormat(Qt.TextFormat.PlainText)
+        self.setWordWrap(True)
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
+
+    def setText(self, text: str) -> None:
+        super().setText(text)
+        self._fit_height()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._fit_height()
+
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() in (QEvent.Type.FontChange, QEvent.Type.StyleChange):
+            self._fit_height()
+
+    def _fit_height(self) -> None:
+        height = max(self.fontMetrics().height(), self.heightForWidth(max(1, self.width())))
+        if self.minimumHeight() != height:
+            self.setMinimumHeight(height)
 
 
 def button(text: str, action, primary: bool = False) -> QPushButton:

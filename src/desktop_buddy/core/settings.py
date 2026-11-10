@@ -1,12 +1,14 @@
 import re
 from dataclasses import asdict, dataclass, fields
 
+from desktop_buddy.ai.config import DEFAULT_MODEL, validate_model
 from desktop_buddy.characters.dialogue_profiles import PROFILE_IDS
 from desktop_buddy.core.metadata import DEFAULT_CHARACTER_NAME
 
 
 @dataclass(frozen=True)
 class Settings:
+    ai_model: str = DEFAULT_MODEL
     character_id: str = "moru"
     character_selection_done: bool = False
     mini_timer_style: str = "pill"
@@ -63,7 +65,12 @@ class Settings:
         clean = {}
         for field in fields(cls):
             value = values.get(field.name, getattr(defaults, field.name))
-            if field.name == "character_selection_done":
+            if field.name == "ai_model":
+                try:
+                    clean[field.name] = validate_model(value)
+                except ValueError:
+                    clean[field.name] = defaults.ai_model
+            elif field.name == "character_selection_done":
                 clean[field.name] = value if type(value) is bool else False
                 if field.name not in values:
                     clean[field.name] = bool(values)

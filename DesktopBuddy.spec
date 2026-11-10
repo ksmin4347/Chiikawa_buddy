@@ -3,7 +3,7 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 root = Path(SPECPATH)
 runtime_spec = importlib.util.spec_from_file_location('build_runtime', root / 'tools' / 'build_runtime.py')
@@ -24,7 +24,9 @@ a = Analysis(
                           'focus_002.png', 'focus_003.png')],
            *[(str(root / 'assets' / 'completion_audio' / f'{key}.wav'),
               'assets/completion_audio') for key in ('chiikawa', 'hachiware', 'usagi')]] + collect_data_files('tzdata'),
-    hiddenimports=[],
+    hiddenimports=(collect_submodules('openai.resources.responses')
+                   + collect_submodules('openai.types.responses')
+                   + collect_submodules('openai.types.shared')),
     excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.QtQml', 'PySide6.QtQuick',
               'PySide6.QtPdf', 'tkinter', 'pytest'],

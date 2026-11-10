@@ -19,6 +19,7 @@ from desktop_buddy.services.command_executor import (
 
 class ChatService(QObject):
     changed = Signal()
+    context_changed = Signal()
     navigation_requested = Signal(str)
 
     def __init__(
@@ -33,6 +34,7 @@ class ChatService(QObject):
         self.voice = DialogueVoice(lambda: self.character_id)
         self._character_id = settings.current.chat_character_id
         self._memory_speakers: dict[int, str] = {}
+        self._memory_modes: dict[int, str] = {}
         self._history_enabled = settings.current.chat_history_enabled
         sessions = self.repository.sessions() if self._history_enabled else []
         self.session_id = sessions[0][0] if sessions else None
@@ -76,16 +78,19 @@ class ChatService(QObject):
 
     def _settings_changed(self, settings) -> None:
         if settings.chat_character_id != self._character_id:
+            self.context_changed.emit()
             self._character_id = settings.chat_character_id
             self.pending = None
             self.reply = Reply(self._say("greeting", "안녕하세요!"), character_id=self.character_id)
             self.changed.emit()
         if settings.chat_history_enabled == self._history_enabled:
             return
+        self.context_changed.emit()
         self._history_enabled = settings.chat_history_enabled
         self.session_id, self.pending = None, None
         self._memory = []
         self._memory_speakers = {}
+        self._memory_modes = {}
         self.reply = Reply(
             self._say(
                 "history_on" if self.history_enabled else "history_off",
@@ -115,9 +120,11 @@ class ChatService(QObject):
         return self.repository.messages(self.session_id, before_id) if self.session_id else []
 
     def new_session(self) -> None:
+        self.context_changed.emit()
         self.pending, self.session_id = None, None
         self._memory = []
         self._memory_speakers = {}
+        self._memory_modes = {}
         self.reply = Reply(
             self._say("new_session", "새 대화를 시작해요. 이전 확인 카드는 취소했어요."),
             character_id=self.character_id,
@@ -127,6 +134,7 @@ class ChatService(QObject):
     def select_session(self, session_id: str) -> None:
         if session_id not in {key for key, _ in self.sessions()}:
             raise ValueError("대화를 찾을 수 없어요.")
+        self.context_changed.emit()
         self.pending, self.session_id = None, session_id
         self.reply = Reply(
             self._say(
@@ -150,22 +158,50 @@ class ChatService(QObject):
         )
         self.changed.emit()
 
-    def _append(self, role: str, text: str) -> None:
+    def _append(self, role: str, text: str, mode: str = "offline") -> None:
         # Called only in the executor's transaction, or our own transaction.
         if self.history_enabled:
             if self.session_id is None:
                 previous = self.session_id
                 self.store.on_rollback(lambda: setattr(self, "session_id", previous))
                 self.session_id = self.repository.create_session()
-            self.repository.append(self.session_id, role, text, character_id=self.character_id)
+            self.repository.append(
+                self.session_id, role, text, character_id=self.character_id, mode=mode
+            )
 
-    def _remember(self, role: str, text: str, character_id: str | None = None) -> None:
+    def _remember(
+        self, role: str, text: str, character_id: str | None = None, mode: str = "offline"
+    ) -> None:
         if not self.history_enabled:
             self._memory_id += 1
             self._memory.append((self._memory_id, role, text, self.timer.clock.now().isoformat()))
             self._memory_speakers[self._memory_id] = character_id or self.character_id
+            self._memory_modes[self._memory_id] = mode
             self._memory = self._memory[-200:]
             self._memory_speakers = {row[0]: self._memory_speakers[row[0]] for row in self._memory}
+            self._memory_modes = {row[0]: self._memory_modes[row[0]] for row in self._memory}
+
+    def message_modes(self, message_ids: list[int]) -> dict[int, str]:
+        if not self.history_enabled:
+            return {key: self._memory_modes.get(key, "offline") for key in message_ids}
+        return self.repository.modes(self.session_id, message_ids) if self.session_id else {}
+
+    def begin_online(self, text: str, *, notify_context: bool = True) -> None:
+        validate_input(text)
+        if notify_context:
+            self.context_changed.emit()
+        self.pending = None
+        with self.store.transaction():
+            self._append("user", text, "ai")
+        self._remember("user", text, mode="ai")
+        self.changed.emit()
+
+    def accept_online(self, text: str) -> None:
+        with self.store.transaction():
+            self._append("assistant", text, "ai")
+        self._remember("assistant", text, mode="ai")
+        self.reply = Reply(text, character_id=self.character_id)
+        self.changed.emit()
 
     def _respond(self, reply: Reply, already_saved: bool = False) -> Reply:
         if not already_saved:
@@ -178,6 +214,7 @@ class ChatService(QObject):
         return reply
 
     def submit(self, text: str) -> Reply:
+        self.context_changed.emit()
         self.pending = None
         text = validate_input(text)
         today = self.timer.clock.now().astimezone(self.planning.zone).date()

@@ -177,3 +177,11 @@ SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollb
 `WavePlayer`는 고정 3종의 로컬 WAV를 검증하고 Windows 비동기 재생을 호출한다. 파일당 12 MiB, 48kHz/2채널/16bit PCM·고정 길이·경로 이탈·잘린 파일을 확인하며 시스템 기본 소리로 대체하지 않는다. 재생 실패는 알리고 무음으로 진행한다. 파이썬 기본 기능을 사용하므로 런타임 오디오 디코더를 추가하지 않는다. soundfile을 사용하는 변환 도구는 개발 전용이다. 빌드는 WAV 세 파일을 명시적으로 포함한다.
 
 `FocusPage`는 선택·미리보기·중지와 같은 카드 안의 오류 안내를 제공한다. 설정 실패 때 UI 선택을 복구하며 미리보기 오류를 타이머 저장 오류로 처리하지 않는다. completion_style 기본 simple, completion_sound_enabled 기본 false이며 기존 설정 구조와 DB 스키마 6을 유지한다.
+
+## 선택형 온라인 텍스트 — 0.6.1
+
+`OnlineService`가 현재 요청 ID·모드·모델·취소/지연 응답을 관리한다. `OnlineJob`의 daemon 작업 스레드는 별도 asyncio 루프에서 키를 읽고 `ResponsesClient`를 실행한다. 키와 원시 SDK 예외는 Qt 신호에 전달하지 않는다. 키 검사 후 요청 ID로 GUI의 저장 승인을 기다리고, `ChatService.begin_online`의 저장이 성공해야 HTTP를 시작한다. 응답 저장도 GUI의 `accept_online`에서 수행한다.
+
+`OpenAITransport`는 고정 HTTPS Responses 경로·TLS·리다이렉트 금지·환경 프록시 무시·1 MiB 제한을 맡는다. SDK/HTTP 재시도는 끈다. 이전 대화/DB를 요청에 첨부하지 않고 도구를 허용하지 않는다. 전체 60초 제한과 취소를 사용하며 강제 스레드 종료나 GUI의 join 대기는 하지 않는다. 이미 전송된 요청/요금 취소는 보장하지 않는다.
+
+`characters/ai_persona.py`가 말투 지침과 우사기 외곽 형식을 담당한다. 응답의 명령 문장은 실행기에 연결하지 않는다. 기존 스키마 6의 메시지 mode와 화자 메타데이터를 사용하며 과거 답변을 다시 작성하지 않는다. 비밀이 아닌 모델 ID만 설정에 저장하고 온라인 활성화는 실행 중에만 유지한다.

@@ -18,6 +18,7 @@ from desktop_buddy.services.companion_service import CompanionService
 from desktop_buddy.services.completion_service import CompletionService
 from desktop_buddy.services.focus_timer import FocusTimerService
 from desktop_buddy.services.notification_service import NotificationService
+from desktop_buddy.services.online_service import OnlineService
 from desktop_buddy.services.pet_behavior import PetBehavior
 from desktop_buddy.services.planning_service import PlanningService
 from desktop_buddy.services.power_events import PowerEventFilter
@@ -42,6 +43,7 @@ class BuddyApplication:
         *,
         show_onboarding: bool = True,
         api_keys: ApiKeyService | None = None,
+        online_client=None,
     ):
         self.app = app
         self.store = store
@@ -74,6 +76,7 @@ class BuddyApplication:
             api_keys if api_keys is not None else ApiKeyService(WindowsCredentialVault(target))
         )
         self.api_keys.changed.connect(self.chat.invalidate_pending)
+        self.online = OnlineService(self.api_keys, self.settings, self.chat, client=online_client)
         self.power_filter = PowerEventFilter(self.focus_timer)
         app.installNativeEventFilter(self.power_filter)
         self.animation = AnimationState(self.characters.clips)
@@ -93,6 +96,7 @@ class BuddyApplication:
             self.chat,
             self.characters,
             self.api_keys,
+            self.online,
         )
         self.chat.navigation_requested.connect(
             lambda page: self.manager.open_page(
@@ -152,6 +156,7 @@ class BuddyApplication:
         self.manager.reset_requested.connect(self.reset_position)
         self.manager.quit_requested.connect(self.quit)
         self.manager.closing.connect(self._manager_closed)
+        self.manager.closing.connect(self.online.cancel)
         self.settings.changed.connect(self._settings_changed)
         self.settings.save_failed.connect(self._save_error)
         guard.activation_requested.connect(self._activate_existing)
@@ -425,6 +430,7 @@ class BuddyApplication:
         if self._closed:
             return
         self._closed = True
+        self.online.close()
         self.behavior.close()
         self.celebration.close()
         self.chat.pending = None

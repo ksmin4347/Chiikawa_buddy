@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from desktop_buddy.characters.dialogue_profiles import PROFILES, profile
 from desktop_buddy.chat.parser import SecretInputError
 from desktop_buddy.ui.accessibility import CommandInput, announce
-from desktop_buddy.ui.common import button, card, label
+from desktop_buddy.ui.common import WrappedStatus, button, card, label
 
 
 class ChatTranscript(QPlainTextEdit):
@@ -29,9 +29,11 @@ class ChatTranscript(QPlainTextEdit):
 
 
 class ChatPage(QWidget):
-    def __init__(self, service):
+    def __init__(self, service, online=None, open_connection=None):
         super().__init__()
         self.service = service
+        self.online = online
+        self._sent_id = self._sent_text = None
         self._rows: list[tuple] = []
         self._request_id = None
         self._view_generation = 0
@@ -104,7 +106,7 @@ class ChatPage(QWidget):
         self.transcript.setMinimumHeight(100)
         self.transcript.setAccessibleName("대화 내용")
         self.transcript.setPlaceholderText(
-            "명령을 입력하거나 예시를 골라 보세요. 자유로운 AI 대화는 아직 지원하지 않아요."
+            "오프라인 명령이나 예시를 사용해 보세요. AI 대화는 연결 테스트 후 직접 켤 수 있어요."
         )
         body.addWidget(self.transcript, 1)
         self.proposal, content = card("실행 전 확인 · 5분 후 만료")
@@ -120,7 +122,8 @@ class ChatPage(QWidget):
         self.confirm_button = button("확인하고 적용", self._confirm, True)
         self.confirm_button.setToolTip("Ctrl+Enter로 현재 확인 카드를 적용해요.")
         row.addWidget(self.confirm_button)
-        row.addWidget(button("취소", lambda: self._run(self.service.cancel)))
+        self.cancel_button = button("취소", lambda: self._run(self.service.cancel))
+        row.addWidget(self.cancel_button)
         content.addLayout(row)
         body.addWidget(self.proposal)
         self.error = QPlainTextEdit()
@@ -129,6 +132,28 @@ class ChatPage(QWidget):
         self.error.setMaximumHeight(82)
         self.error.hide()
         body.addWidget(self.error)
+        if online is not None:
+            row = QHBoxLayout()
+            self.ai_enabled = QCheckBox("온라인 AI 대화")
+            self.ai_enabled.toggled.connect(self._set_online)
+            row.addWidget(self.ai_enabled)
+            self.connection_button = button("키·연결 설정", open_connection)
+            row.addWidget(self.connection_button)
+            self.ai_cancel = button("요청 취소", online.cancel)
+            row.addWidget(self.ai_cancel)
+            body.addLayout(row)
+            body.addWidget(
+                label(
+                    "AI는 현재 문장·캐릭터 설명만 OpenAI에 보내며 API 비용이 발생할 수 있어요. "
+                    "이전 대화·일정·공부 기록은 자동 전송하지 않아요.",
+                    "muted",
+                )
+            )
+            self.ai_status = WrappedStatus()
+            self.ai_status.setAccessibleName("온라인 대화 상태")
+            body.addWidget(self.ai_status)
+            online.changed.connect(self.refresh_online)
+            online.completed.connect(self._online_finished)
         row = QHBoxLayout()
         self.input = CommandInput()
         self.input.setMaxLength(2000)
@@ -139,6 +164,9 @@ class ChatPage(QWidget):
         self.send_button = button("보내기", self._submit, True)
         row.addWidget(self.send_button)
         body.addLayout(row)
+        if online is not None:
+            QWidget.setTabOrder(self.cancel_button, self.input)
+            QWidget.setTabOrder(self.input, self.send_button)
         for title, keys, callback in (
             ("채팅 확인 카드 적용", ("Ctrl+Return", "Ctrl+Enter"), self.confirm_from_keyboard),
             ("채팅 확인 카드 취소", ("Escape",), self.cancel_from_keyboard),
@@ -153,6 +181,8 @@ class ChatPage(QWidget):
         if service.characters is not None:
             service.characters.changed.connect(self.refresh)
         self.refresh()
+        if online is not None:
+            self.refresh_online()
 
     def _run(self, callback):
         self.error.hide()
@@ -182,6 +212,16 @@ class ChatPage(QWidget):
 
     def _submit(self):
         if self.input.composing:
+            return
+        if self.online is not None and self.online.enabled:
+            text = self.input.text()
+
+            def send():
+                self._sent_id = self.online.send(text)
+                self._sent_text = text
+
+            self._run(send)
+            self.input.setFocus()
             return
         self.send_button.setEnabled(False)
         try:
@@ -217,6 +257,8 @@ class ChatPage(QWidget):
         if self.service.pending is not None and not self.input.composing:
             self._run(self.service.cancel)
             self.input.setFocus()
+        elif self.online is not None and self.online.kind == "chat" and not self.input.composing:
+            self.online.cancel()
 
     def _select_session(self):
         key = self.sessions.currentData()
@@ -251,9 +293,17 @@ class ChatPage(QWidget):
         generation = self._view_generation
         old = self.transcript.verticalScrollBar().value()
         speakers = self.service.message_speakers([row[0] for row in self._rows])
+        modes = self.service.message_modes([row[0] for row in self._rows])
+        annotations = {
+            row[0]: "AI · 계획/타이머 실행 없음 · "
+            if row[1] == "assistant" and modes.get(row[0]) == "ai"
+            else ""
+            for row in self._rows
+        }
         self.transcript.setPlainText(
             "\n\n".join(
                 f"{'나' if role == 'user' else profile(speakers.get(message_id, 'moru')).name} · "
+                f"{annotations[message_id]}"
                 f"{self._timestamp(stamp)} KST\n{text}"
                 for message_id, role, text, stamp in self._rows
             )
@@ -338,3 +388,43 @@ class ChatPage(QWidget):
                     else None
                 ),
             )
+        if self.online is not None:
+            self.refresh_online()
+
+    def _set_online(self, enabled: bool) -> None:
+        self._run(lambda: self.online.set_enabled(enabled))
+        self.refresh_online()
+
+    def refresh_online(self) -> None:
+        online = self.online
+        with QSignalBlocker(self.ai_enabled):
+            self.ai_enabled.setChecked(online.enabled)
+        self.ai_cancel.setVisible(online.busy)
+        self.send_button.setText("AI로 보내기" if online.enabled else "보내기")
+        self.send_button.setEnabled(not (online.enabled and online.busy))
+        self.input.setPlaceholderText(
+            "AI에게 보낼 질문을 입력하세요" if online.enabled else "한 번에 한 명령을 입력하세요"
+        )
+        self.input.setAccessibleName("AI 질문 입력" if online.enabled else "채팅 명령 입력")
+        text = online.status
+        if online.usage is not None:
+            values = [str(value) if value is not None else "확인 불가" for value in online.usage]
+            text += f"\n입력 {values[0]} · 출력 {values[1]} 토큰 (계정 청구액 아님)"
+        self.ai_status.setText(text)
+        mode = "온라인 AI" if online.enabled else "오프라인 대화"
+        if self.service.characters is not None:
+            name = profile(self.service.characters.active_id).name
+            self.subtitle.setText(f"그림: {name} · 말투: {self.service.voice.name} · {mode}")
+
+    def _online_finished(self, request_id: str, success: bool) -> None:
+        if request_id == self._sent_id:
+            if (
+                success or getattr(self.online, "last_error", "") == "sensitive"
+            ) and self.input.text() == self._sent_text:
+                self.input.setText("")
+            self._sent_id = self._sent_text = None
+
+    def hideEvent(self, event) -> None:
+        if self.online is not None and self.online.kind == "chat":
+            self.online.cancel()
+        super().hideEvent(event)

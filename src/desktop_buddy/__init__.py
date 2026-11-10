@@ -1,3 +1,3 @@
 """Desktop Buddy, a local-first Windows companion."""
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"

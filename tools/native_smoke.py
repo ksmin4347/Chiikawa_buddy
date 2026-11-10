@@ -323,6 +323,10 @@ result["companion_timer_stopped"] = not controller.companion.timer.isActive()
 result["briefing_timer_stopped"] = not controller.briefing.timer.isActive()
 result["notification_timer_stopped"] = not controller.notifications.timer.isActive()
 next_guard.close()
+result["failed_checks"] = [key for key, value in result.items() if value is False]
+if result["failed_checks"]:
+    code = code or 1
+result["exit_code"] = code
 (ROOT / ".qa" / "native-smoke-characters.json").write_text(
     json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
 )

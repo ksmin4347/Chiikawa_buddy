@@ -1,4 +1,4 @@
-# 먼작귀 0.5.8
+# 먼작귀 0.5.9
 
 소스 저장소: [ksmin4347/Chiikawa_buddy](https://github.com/ksmin4347/Chiikawa_buddy)
 
@@ -26,7 +26,7 @@
 
 처음 소스를 받았거나 0.1.0 개발 환경에서 업데이트했다면 Python 3.12 이상을 설치한 뒤 `setup_windows.bat` → `run_windows.bat` 순서로 실행합니다. 준비에는 인터넷이 필요하며, 앱 실행에는 인터넷이 필요하지 않습니다.
 
-`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.5.8-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **0.5.8 EXE는 이 PC의 Windows 앱 제어 정책에 막혀 실제 실행·깨끗한 PC 검증을 완료하지 못했습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
+`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.5.9-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **EXE 실행은 이 PC의 Windows 앱 제어 정책에 막힌 상태이며 0.5.9도 실제 실행·깨끗한 PC 검증은 남아 있습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
 
 ## 지금 사용할 수 있는 기능
 
@@ -141,7 +141,7 @@
 .\.venv\Scripts\python.exe tools\native_smoke.py
 ```
 
-자동 테스트 **437개 통과**, 코드 품질 검사 통과. 0.5.8에는 작은 창 회귀 7개·ZIP 패키징 23개·빌드 DLL 경로 3개를 추가했습니다. offscreen 화면 상태는 5조건 총 155개를 검사했습니다. [0.5.8 검토 기록](docs/AUDIT_REPORT_0.5.8.md)에 DLL 오류 원인·수정과 EXE 실행 제한을 기록했습니다. 이전 키보드/접근성·Windows Qt 자체 검사는 [5C 기록](docs/PHASE_5C_REPORT.md)과 [0.5.6 기록](docs/AUDIT_REPORT_0.5.6.md)을 따릅니다. 실제 Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
+자동 테스트 **439개 통과**, 코드 품질 검사 통과. 0.5.9에는 긴 데이터 경로로 설정 화면이 넓어지는 오류를 수정하고 2개 회귀를 추가했습니다. Windows Qt 키보드/접근성/작은 창 33개·수명주기 53개와 100/125/150/200% 등 155개 화면 상태를 확인했습니다. 실제 OS 키 입력과 IME 검사는 자동화 창을 선택할 수 없어 보류했습니다. [0.5.9 검토 기록](docs/AUDIT_REPORT_0.5.9.md)에 결과와 제한을 정리했습니다. 실제 Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
 
 기존 테스트 임시 폴더의 권한 문제가 있다면 새 경로로 검증할 수 있습니다.
 

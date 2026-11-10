@@ -2,7 +2,7 @@
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QScrollArea
+from PySide6.QtWidgets import QApplication, QLabel, QLineEdit, QScrollArea, QWidget
 from test_focus import advance
 from test_focus_ui import controller  # noqa: F401
 
@@ -87,3 +87,32 @@ def test_resize_keeps_an_existing_confirmation_without_applying_it(controller, q
     QTest.keyClick(manager.chat_page.input, Qt.Key.Key_Return, Qt.KeyboardModifier.ControlModifier)
     settle(qapp)
     assert len(buddy.planning.repository.records("task")) == 1
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_long_data_folder_can_be_copied_without_widening_settings(
+    controller, qapp, tmp_path, theme
+):
+    buddy, clock = controller
+    manager = buddy.manager
+    buddy.settings.update(theme=theme)
+    manager.navigate(manager.SETTINGS_PAGE)
+    area = manager.pages.currentWidget()
+    field = next(
+        widget
+        for widget in area.findChildren(QWidget)
+        if isinstance(widget, (QLabel, QLineEdit)) and widget.text() == str(tmp_path)
+    )
+    directory = "C:/" + "/".join(["긴데이터폴더이름" * 5] * 3) + "/DesktopBuddy"
+    field.setText(directory)
+    manager.resize(560, 360)
+    settle(qapp)
+    settle(qapp)
+    assert area.horizontalScrollBar().maximum() == 0
+    assert isinstance(field, QLineEdit) and field.isReadOnly()
+    assert field.accessibleName() == "데이터 저장 폴더"
+    field.setFocus()
+    QTest.keyClick(field, Qt.Key.Key_A, Qt.KeyboardModifier.ControlModifier)
+    assert field.selectedText() == directory
+    QTest.keyClick(field, Qt.Key.Key_X)
+    assert field.text() == directory

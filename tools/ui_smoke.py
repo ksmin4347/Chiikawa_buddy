@@ -142,7 +142,12 @@ def inspect(root):
     return report
 
 
-results = {"platform": app.platformName(), "dpr": app.devicePixelRatio(), "pages": {}}
+results = {
+    "platform": app.platformName(),
+    "dpr": app.devicePixelRatio(),
+    "configured_style": "Fusion",
+    "pages": {},
+}
 for theme in ("light", "dark"):
     buddy.settings.update(theme=theme)
     for index, name in enumerate(

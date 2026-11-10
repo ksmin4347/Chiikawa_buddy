@@ -1,10 +1,12 @@
-# PHASE 0~4·5A·5B·일부 5C 검증 — 0.5.8
+# PHASE 0~4·5A·5B·일부 5C 검증 — 0.5.9
 
-최종 회귀/빌드 검토: 2026-11-10, 한국 시간. Windows 11 build 26200, Python 3.12.14, PySide6 6.12.0, pytest 9.2.0, ruff 0.17.3, PyInstaller 6.22.3. 0.5.8 화면 검사는 11월 5~10일 수행했습니다.
+최종 회귀/빌드 검토: 2026-11-10, 한국 시간. Windows 11 build 26200, Python 3.12.14, PySide6 6.12.0, pytest 9.2.0, ruff 0.17.3, PyInstaller 6.22.3. 0.5.9 Windows Qt 검사는 11월 10일 수행했습니다.
 
 ## 자동 회귀
 
-**437개 통과**: 기존 404개 + 작은 창 7개·ZIP 패키징 23개·빌드 DLL 경로 3개. 새 임시 DB와 Qt offscreen 플랫폼을 사용했습니다. 실제 사용자 DB는 사용하지 않았습니다. `ruff check .`, `ruff format --check .` 통과.
+**439개 통과**: 기존 437개 + 긴 데이터 경로/선택/읽기 전용 보존 2개. 새 임시 DB와 Qt offscreen 플랫폼을 사용했습니다. 실제 사용자 DB는 사용하지 않았습니다. `ruff check .`, `ruff format --check .` 통과.
+
+0.5.9 Windows Qt 키보드/접근성/작은 창 33개, 네이티브 수명주기 53개·4배율 등 155개 상태를 확인했습니다. 긴 데이터 폴더 경로가 설정 최소 너비를 늘리던 오류를 수정했습니다. OS 자동화 도구에서 QA 창을 선택하지 못해 실제 OS 키 입력/IME는 수행하지 않았습니다. [0.5.9 결과](AUDIT_REPORT_0.5.9.md)를 따릅니다.
 
 0.5.8 offscreen 5조건 총 155개 화면 상태에서 자동 검사상 겹침·잘림·부모 밖 침범이 없었습니다. 작은 창 그림을 직접 확인하고, 네이티브 EXE의 QtGui DLL 오류를 재현해 빌드 경로를 수정했습니다. 수정 후 빌드·정적 DLL 검사·ZIP 검증은 통과했으나 EXE 실행은 Windows 정책에 막혔습니다. [0.5.8 상세 결과](AUDIT_REPORT_0.5.8.md)를 따릅니다.
 
@@ -39,9 +41,9 @@ Qt API로 앱을 조작한 검사이며 실제 OS 마우스/키보드·트레이
 
 `tools/render_preview.py`는 전용 QA DB에서 앱 위젯만 렌더링합니다. 기존 페이지와 3종 채팅, 실제 3종 선택·집중 미리보기·첫 선택·원형 타이머, 어두운 720×560 캐릭터 화면을 점검했습니다. 사용자 데이터나 다른 앱을 캡처하지 않았습니다.
 
-PyInstaller **0.5.8 one-folder 빌드**와 포함 파일을 확인했습니다. 모루·아이콘·고정 3종의 각 5파일(manifest/atlas/focus 3장)·완료 PCM WAV 3개·Qt Windows 플러그인·tzdata Asia/Seoul과 키보드/접근성 모듈을 포함합니다. 작업 원본·DB·로그·QA·키 파일은 제외합니다. ZIP의 파일 목록 867개와 각 SHA-256, ZIP 체크섬을 검증했습니다.
+PyInstaller **0.5.9 one-folder 빌드**와 포함 파일을 확인했습니다. 모루·아이콘·고정 3종의 각 5파일(manifest/atlas/focus 3장)·완료 PCM WAV 3개·Qt Windows 플러그인·tzdata Asia/Seoul과 키보드/접근성 모듈을 포함합니다. 작업 원본·DB·로그·QA·키 파일은 제외합니다. ZIP의 파일 목록 867개와 각 SHA-256, ZIP 체크섬을 검증했습니다.
 
-수정 후 EXE 자체 실행은 Windows 앱 제어 정책 차단으로 미검증입니다. 보안 설정 변경이나 우회 실행은 하지 않았습니다. 확인된 실행 경로는 `run_windows.bat`의 Python/PySide6 소스 실행입니다.
+이전 회차 0.5.8 EXE 자체 실행은 Windows 앱 제어 정책에 막혔습니다. 이번 0.5.9 EXE도 실제 실행은 미검증이며 보안 설정 변경이나 우회 실행은 하지 않았습니다. 확인된 실행 경로는 `run_windows.bat`의 Python/PySide6 소스 실행입니다.
 
 ## 수동 확인 대기
 

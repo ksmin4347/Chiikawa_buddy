@@ -1,4 +1,5 @@
 from datetime import datetime
+from html import escape
 
 from PySide6.QtCore import QSignalBlocker, Qt, QTime, QTimer, Signal
 from PySide6.QtGui import QAction, QIcon, QKeySequence
@@ -393,9 +394,15 @@ class ManagementWindow(QMainWindow):
         body.addWidget(frame)
         frame, content = card("데이터와 프로그램")
         content.addWidget(label("설정·계획·집중 기록은 아래 폴더에 보관해요.", "muted"))
-        path_label = label(str(data_dir))
-        path_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        content.addWidget(path_label)
+        self.data_path = QLineEdit(str(data_dir))
+        self.data_path.setReadOnly(True)
+        self.data_path.setCursorPosition(0)
+        self.data_path.setAccessibleName("데이터 저장 폴더")
+        self.data_path.setAccessibleDescription(
+            "읽기 전용이에요. Ctrl+A로 전체 경로를 선택하고 Ctrl+C로 복사할 수 있어요."
+        )
+        self.data_path.setToolTip(escape(str(data_dir)))
+        content.addWidget(self.data_path)
         content.addWidget(
             label(
                 "관리창을 닫아도 캐릭터와 트레이는 계속 실행돼요.\n"

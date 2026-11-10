@@ -1,4 +1,4 @@
-# Windows에서 사용하기 — 0.5.8
+# Windows에서 사용하기 — 0.5.9
 
 ## 시작
 
@@ -79,9 +79,11 @@
 
 `%LOCALAPPDATA%\DesktopBuddy\buddy.db`에 저장합니다. 0.1.0~0.3.0 DB는 자동 백업 후 새 스키마로 이전하며 설정과 위치를 유지합니다. 이전 중 오류가 있어도 DB를 초기화하지 않습니다. 원본과 `buddy.<시각>.backup.db`를 보관하세요. 수동 백업·복원 버튼은 아직 없습니다.
 
-`dist\releases\Meonjakgwi-0.5.8-windows-x64.zip`은 로컬 배포 후보입니다. ZIP 전체를 새 폴더에 압축 해제하고 `DesktopBuddy.exe`와 `_internal`을 함께 둡니다. 업데이트 전 트레이에서 종료하고 새 폴더를 사용하면 기존 `%LOCALAPPDATA%\DesktopBuddy` 데이터는 유지됩니다. Python 없는 PC의 실행은 아직 검증하지 않았습니다.
+`dist\releases\Meonjakgwi-0.5.9-windows-x64.zip`은 로컬 배포 후보입니다. ZIP 전체를 새 폴더에 압축 해제하고 `DesktopBuddy.exe`와 `_internal`을 함께 둡니다. 업데이트 전 트레이에서 종료하고 새 폴더를 사용하면 기존 `%LOCALAPPDATA%\DesktopBuddy` 데이터는 유지됩니다. Python 없는 PC의 실행은 아직 검증하지 않았습니다.
 
-이 PC에서 0.5.8 EXE 실행은 **Windows 앱 제어 정책으로 차단**되었습니다. 보안 설정을 바꾸지 않았으며 EXE 실행 성공으로 처리하지 않습니다. 현재는 바탕화면 먼작귀 또는 `run_windows.bat` 소스 실행을 사용합니다. [ZIP·SHA-256 검증과 빌드 방법](RELEASE_GUIDE.md)을 참고하세요.
+이 PC에서 이전 0.5.8 EXE 실행은 **Windows 앱 제어 정책으로 차단**되었습니다. 0.5.9의 Windows Qt 소스 검사는 EXE 실제 실행 검증을 대신하지 않습니다. 보안 설정을 바꾸지 않았으며 현재는 바탕화면 먼작귀 또는 `run_windows.bat` 소스 실행을 사용합니다. [ZIP·SHA-256 검증과 빌드 방법](RELEASE_GUIDE.md)을 참고하세요.
+
+0.5.9에서는 설정의 **데이터 저장 폴더**를 읽기 전용 입력칸으로 표시합니다. 경로가 길어도 설정 화면을 넓히지 않으며 Ctrl+A로 전체를 선택하고 Ctrl+C로 복사할 수 있습니다. 이 칸에서 실제 저장 폴더를 바꾸지는 않습니다.
 
 0.5.7은 관리창에서 **Ctrl+1~9**, 채팅 **Ctrl+L / Ctrl+Enter / Escape**, **F1** 키보드 안내를 지원합니다. 업데이트 후 재실행하면 사용할 수 있습니다. [키보드·접근성 사용법](KEYBOARD_GUIDE.md)을 참고하세요.
 

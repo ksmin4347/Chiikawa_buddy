@@ -11,9 +11,12 @@ if not exist ".venv\Scripts\python.exe" (
 if errorlevel 1 goto failed
 ".venv\Scripts\python.exe" -m PyInstaller --noconfirm DesktopBuddy.spec
 if errorlevel 1 goto failed
+".venv\Scripts\python.exe" tools\package_release.py
+if errorlevel 1 goto failed
 echo.
 echo 생성 완료: dist\DesktopBuddy\DesktopBuddy.exe
 echo DesktopBuddy 폴더 전체를 함께 복사하세요. EXE만 옮기면 실행되지 않습니다.
+echo ZIP과 SHA-256 파일: dist\releases
 pause
 exit /b 0
 :failed

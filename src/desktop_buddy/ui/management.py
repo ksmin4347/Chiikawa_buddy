@@ -72,13 +72,13 @@ class ManagementWindow(QMainWindow):
         self.setWindowTitle(f"{APP_NAME} · 관리창")
         self.setWindowIcon(QIcon(str(asset_directory() / "icons" / "buddy.ico")))
         self.resize(960, 760)
-        self.setMinimumSize(720, 480)
+        self.setMinimumSize(560, 360)
         root = QWidget()
         self.setCentralWidget(root)
         layout = QHBoxLayout(root)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        side = QFrame()
+        self.sidebar = side = QFrame()
         side.setObjectName("sidebar")
         side.setFixedWidth(184)
         nav_layout = QVBoxLayout(side)
@@ -98,7 +98,7 @@ class ManagementWindow(QMainWindow):
         nav_layout.addWidget(label("나의 작은 데스크톱 친구", "muted"))
         nav_layout.addSpacing(28)
         self.pages = QStackedWidget()
-        nav_area = QScrollArea()
+        self.nav_area = nav_area = QScrollArea()
         nav_area.setWidgetResizable(True)
         nav_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         nav_area.setFrameShape(QFrame.Shape.NoFrame)
@@ -132,7 +132,23 @@ class ManagementWindow(QMainWindow):
         nav_layout.addSpacing(10)
         nav_layout.addWidget(label(f"v{VERSION} · 초기 버전", "muted"))
         layout.addWidget(side)
-        layout.addWidget(self.pages, 1)
+        main = QWidget()
+        main_layout = QVBoxLayout(main)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+        self.compact_bar = QFrame()
+        compact_layout = QHBoxLayout(self.compact_bar)
+        compact_layout.setContentsMargins(12, 8, 12, 8)
+        compact_layout.addWidget(label(APP_NAME, "heading"))
+        self.compact_menu = QComboBox()
+        self.compact_menu.setAccessibleName("관리창 화면 메뉴")
+        self.compact_menu.addItems(PAGE_NAMES)
+        self.compact_menu.activated.connect(self.navigate)
+        compact_layout.addWidget(self.compact_menu, 1)
+        compact_layout.addWidget(button("안내 · F1", self.show_keyboard_help))
+        main_layout.addWidget(self.compact_bar)
+        main_layout.addWidget(self.pages, 1)
+        layout.addWidget(main, 1)
         self._make_home(preview)
         self.today_page = TodayPage(planning, self.actions)
         self.pages.addWidget(scroll_page(self.today_page))
@@ -169,6 +185,7 @@ class ManagementWindow(QMainWindow):
         self.clock_timer.timeout.connect(self.refresh_clock)
         self.clock_timer.start()
         timer.records_changed.connect(self.refresh_clock)
+        self._update_navigation_layout()
 
     def set_character_preview(self, preview):
         for target, size in ((self.logo, 68), (self.hero_picture, 160)):
@@ -480,6 +497,8 @@ class ManagementWindow(QMainWindow):
             self.companion_page.refresh(self.companion_page.companion.snapshot)
         self.pages.setCurrentIndex(index)
         self.nav_group.button(index).setChecked(True)
+        with QSignalBlocker(self.compact_menu):
+            self.compact_menu.setCurrentIndex(index)
         if self.isMinimized():
             self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
         self.show()
@@ -518,6 +537,25 @@ class ManagementWindow(QMainWindow):
     def showEvent(self, event) -> None:
         super().showEvent(event)
         self.ensure_visible_position()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "compact_menu"):
+            self._update_navigation_layout()
+
+    def _update_navigation_layout(self) -> None:
+        compact = self.width() < 800
+        focus = QApplication.focusWidget()
+        leaving_sidebar = focus is not None and self.sidebar.isAncestorOf(focus)
+        leaving_compact = focus is not None and self.compact_bar.isAncestorOf(focus)
+        self.sidebar.setVisible(not compact)
+        self.compact_bar.setVisible(compact)
+        if compact and leaving_sidebar:
+            self.compact_menu.setFocus(Qt.FocusReason.OtherFocusReason)
+        elif not compact and leaving_compact:
+            target = self.nav_group.button(self.pages.currentIndex())
+            target.setFocus(Qt.FocusReason.OtherFocusReason)
+            self.nav_area.ensureWidgetVisible(target)
 
     def ensure_visible_position(self, *_args) -> None:
         if self.isVisible():

@@ -5,8 +5,10 @@ of the screen's existing scale; report.json records the effective device ratio.
 """
 
 # ruff: noqa: E402 -- Configure Qt and project imports before loading widgets.
+import argparse
 import json
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, time, timedelta
@@ -36,7 +38,19 @@ for font_file in ("malgun.ttf", "malgunbd.ttf"):
 app.setFont(QFont("Malgun Gothic", 10))
 app.setStyle("Fusion")
 app.setQuitOnLastWindowClosed(False)
-tag = sys.argv[1] if len(sys.argv) > 1 else "current"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("tag", nargs="?", default="current")
+parser.add_argument("--width", type=int, default=720)
+parser.add_argument("--height", type=int, default=560)
+parser.add_argument(
+    "--ignore-work-area", action="store_true", help="Offscreen-only larger viewport"
+)
+args = parser.parse_args()
+if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", args.tag) or args.width < 1 or args.height < 1:
+    parser.error("Use a simple tag and positive window dimensions.")
+if args.ignore_work_area and app.platformName() != "offscreen":
+    parser.error("--ignore-work-area is only available with the offscreen platform.")
+tag = args.tag
 output = ROOT / ".qa" / ("ui-audit-" + tag)
 output.mkdir(parents=True, exist_ok=True)
 data = output / uuid.uuid4().hex
@@ -145,8 +159,9 @@ for theme in ("light", "dark"):
         )
     ):
         buddy.manager.open_page(index)
-        buddy.manager.resize(720, 560)
-        buddy.manager.ensure_visible_position()
+        buddy.manager.resize(args.width, args.height)
+        if not args.ignore_work_area:
+            buddy.manager.ensure_visible_position()
         settle()
         report = inspect(buddy.manager)
         page = buddy.manager.pages.currentWidget()
@@ -161,6 +176,9 @@ for theme in ("light", "dark"):
         results["pages"][theme + "-" + name] = report
     for mode in ("week", "day"):
         buddy.manager.open_page(2)
+        buddy.manager.resize(args.width, args.height)
+        if not args.ignore_work_area:
+            buddy.manager.ensure_visible_position()
         buddy.manager.calendar_page.mode_combo.setCurrentIndex(
             buddy.manager.calendar_page.mode_combo.findData(mode)
         )
@@ -170,8 +188,9 @@ for theme in ("light", "dark"):
     buddy.manager.calendar_page.mode_combo.setCurrentIndex(0)
     buddy.manager.open_page(buddy.manager.CHAT_PAGE)
     buddy.chat.submit("할 일 추가: 긴 입력 후 확인 카드")
-    buddy.manager.resize(720, 560)
-    buddy.manager.ensure_visible_position()
+    buddy.manager.resize(args.width, args.height)
+    if not args.ignore_work_area:
+        buddy.manager.ensure_visible_position()
     settle()
     results["pages"][theme + "-chat-confirm"] = inspect(buddy.manager)
     buddy.manager.grab().save(str(output / f"{theme}-chat-confirm.png"))

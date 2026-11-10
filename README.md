@@ -1,4 +1,4 @@
-# 먼작귀 0.5.7
+# 먼작귀 0.5.8
 
 소스 저장소: [ksmin4347/Chiikawa_buddy](https://github.com/ksmin4347/Chiikawa_buddy)
 
@@ -7,6 +7,8 @@
 처음 실행하면 **치이카와·하치와레·우사기** 중 함께할 캐릭터를 고릅니다. 실제 그림·상황별 움직임·대화 말투가 함께 바뀌고 다음 실행에도 유지됩니다. 관리창의 **캐릭터** 메뉴에서 바꾸거나 기본 모루를 사용할 수 있습니다. 채팅은 오프라인 명령 모드이며 자유 AI 대화는 후속 단계입니다.
 
 관리창은 **Ctrl+1~9**로 메뉴를 옮기고, **Ctrl+L**로 채팅 입력에 이동합니다. 채팅 확인은 **Ctrl+Enter**, 카드 취소는 **Escape**, 안내는 **F1**입니다. [키보드·접근성 사용법](docs/KEYBOARD_GUIDE.md)을 참고하세요.
+
+창 너비가 800 논리 픽셀보다 작으면 왼쪽 메뉴가 **상단 화면 선택 메뉴**로 바뀝니다. 최소 560×360 창에서도 내용을 세로로 스크롤하며 사용할 수 있고, 창 크기를 바꿔도 채팅 초안·확인 카드·진행 타이머는 유지됩니다.
 
 ![캐릭터 선택](docs/images/characters.png)
 
@@ -24,7 +26,7 @@
 
 처음 소스를 받았거나 0.1.0 개발 환경에서 업데이트했다면 Python 3.12 이상을 설치한 뒤 `setup_windows.bat` → `run_windows.bat` 순서로 실행합니다. 준비에는 인터넷이 필요하며, 앱 실행에는 인터넷이 필요하지 않습니다.
 
-`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더를 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 폴더 전체가 필요합니다. **이 PC에서 이전 EXE는 Windows 앱 제어 정책으로 차단되었습니다. 0.5.7도 빌드와 포함 파일을 확인했지만 EXE 실행·깨끗한 PC 검증은 완료하지 않았습니다.** 현재 확인된 실행 경로는 소스 실행입니다.
+`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.5.8-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **0.5.8 EXE는 이 PC의 Windows 앱 제어 정책에 막혀 실제 실행·깨끗한 PC 검증을 완료하지 못했습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
 
 ## 지금 사용할 수 있는 기능
 
@@ -139,7 +141,7 @@
 .\.venv\Scripts\python.exe tools\native_smoke.py
 ```
 
-자동 테스트 **404개 통과**, 코드 품질 검사 통과. 0.5.7에 키보드·조합 보호·접근성 검사 24개와 offscreen 화면 상태 31개를 확인했습니다. [5C 검사 기록](docs/PHASE_5C_REPORT.md)에 이번 결과와 실제 Windows 입력을 중단한 이유를 기록했습니다. 0.5.6의 Windows Qt 기능 53개·배율 화면 116개 검사는 [이전 재점검 결과](docs/AUDIT_REPORT_0.5.6.md)를 따릅니다. 실제 Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
+자동 테스트 **437개 통과**, 코드 품질 검사 통과. 0.5.8에는 작은 창 회귀 7개·ZIP 패키징 23개·빌드 DLL 경로 3개를 추가했습니다. offscreen 화면 상태는 5조건 총 155개를 검사했습니다. [0.5.8 검토 기록](docs/AUDIT_REPORT_0.5.8.md)에 DLL 오류 원인·수정과 EXE 실행 제한을 기록했습니다. 이전 키보드/접근성·Windows Qt 자체 검사는 [5C 기록](docs/PHASE_5C_REPORT.md)과 [0.5.6 기록](docs/AUDIT_REPORT_0.5.6.md)을 따릅니다. 실제 Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
 
 기존 테스트 임시 폴더의 권한 문제가 있다면 새 경로로 검증할 수 있습니다.
 

@@ -42,7 +42,7 @@ def validate_input(text: str) -> str:
         r"\bsk-[A-Za-z0-9_-]{12,}|-----BEGIN .*PRIVATE KEY|api[_ -]?key\s*[:=]", text, re.I
     ):
         raise SecretInputError(
-            "키로 보이는 내용은 채팅에 저장할 수 없어요. 현재는 오프라인 모드예요."
+            "키로 보이는 내용은 채팅에 저장할 수 없어요. 설정의 API 키 관리를 사용해 주세요."
         )
     if not text.strip() or len(text) > 2000 or "\n" in text or "\r" in text:
         raise ValueError("명령을 한 줄로 1~2,000자 이내로 입력해 주세요.")

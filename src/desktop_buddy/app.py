@@ -1,4 +1,6 @@
 import logging
+from hashlib import sha256
+from pathlib import Path
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
@@ -6,7 +8,9 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from desktop_buddy.characters.animation import AnimationState
 from desktop_buddy.core.metadata import APP_NAME
-from desktop_buddy.core.paths import asset_directory
+from desktop_buddy.core.paths import asset_directory, data_directory
+from desktop_buddy.security.credentials import TARGET, WindowsCredentialVault
+from desktop_buddy.services.api_key_service import ApiKeyService
 from desktop_buddy.services.briefing_service import BriefingService
 from desktop_buddy.services.character_service import CharacterService
 from desktop_buddy.services.chat_service import ChatService
@@ -29,7 +33,16 @@ from desktop_buddy.ui.theme import apply_theme
 
 
 class BuddyApplication:
-    def __init__(self, app: QApplication, store, guard, data_dir, *, show_onboarding: bool = True):
+    def __init__(
+        self,
+        app: QApplication,
+        store,
+        guard,
+        data_dir,
+        *,
+        show_onboarding: bool = True,
+        api_keys: ApiKeyService | None = None,
+    ):
         self.app = app
         self.store = store
         self.guard = guard
@@ -53,6 +66,14 @@ class BuddyApplication:
             self.companion,
             self.characters,
         )
+        target = TARGET
+        if Path(data_dir).resolve() != data_directory().resolve():
+            scope = sha256(str(Path(data_dir).resolve()).casefold().encode("utf-8")).hexdigest()
+            target = f"DesktopBuddy/Development/{scope}/OpenAI/APIKey"
+        self.api_keys = (
+            api_keys if api_keys is not None else ApiKeyService(WindowsCredentialVault(target))
+        )
+        self.api_keys.changed.connect(self.chat.invalidate_pending)
         self.power_filter = PowerEventFilter(self.focus_timer)
         app.installNativeEventFilter(self.power_filter)
         self.animation = AnimationState(self.characters.clips)
@@ -71,6 +92,7 @@ class BuddyApplication:
             self.companion,
             self.chat,
             self.characters,
+            self.api_keys,
         )
         self.chat.navigation_requested.connect(
             lambda page: self.manager.open_page(

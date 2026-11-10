@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
 from desktop_buddy.core.metadata import APP_NAME, VERSION
 from desktop_buddy.core.paths import asset_directory
 from desktop_buddy.services.settings_service import SettingsService
+from desktop_buddy.ui.api_key_dialog import ApiKeyDialog
 from desktop_buddy.ui.calendar_page import CalendarPage
 from desktop_buddy.ui.character_page import CharacterPage
 from desktop_buddy.ui.chat_page import ChatPage
@@ -64,10 +65,12 @@ class ManagementWindow(QMainWindow):
         companion,
         chat,
         characters,
+        api_keys,
     ):
         super().__init__()
         self.service = service
         self.planning = planning
+        self.api_keys = api_keys
         self.actions = PlanningActions(planning, self)
         self.allow_close = False
         self.setWindowTitle(f"{APP_NAME} · 관리창")
@@ -392,6 +395,11 @@ class ManagementWindow(QMainWindow):
         )
         content.addWidget(button("카테고리 관리", self.actions.manage_categories))
         body.addWidget(frame)
+        frame, content = card("AI 연결 준비")
+        content.addWidget(label("API 키 보관을 관리해요. 현재 대화는 오프라인 모드예요.", "muted"))
+        self.api_key_button = button("API 키 관리", self.show_api_key_dialog)
+        content.addWidget(self.api_key_button)
+        body.addWidget(frame)
         frame, content = card("데이터와 프로그램")
         content.addWidget(label("설정·계획·집중 기록은 아래 폴더에 보관해요.", "muted"))
         self.data_path = QLineEdit(str(data_dir))
@@ -531,6 +539,13 @@ class ManagementWindow(QMainWindow):
             self.name_edit,
         )
         targets[index].setFocus(Qt.FocusReason.ShortcutFocusReason)
+
+    def show_api_key_dialog(self) -> None:
+        dialog = ApiKeyDialog(self.api_keys, self)
+        dialog.exec()
+        dialog.deleteLater()
+        self.activateWindow()
+        self.api_key_button.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def show_keyboard_help(self) -> None:
         previous_focus = QApplication.focusWidget()

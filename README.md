@@ -1,10 +1,12 @@
-# 먼작귀 0.5.9
+# 먼작귀 0.6.0
 
 소스 저장소: [ksmin4347/Chiikawa_buddy](https://github.com/ksmin4347/Chiikawa_buddy)
 
 작은 캐릭터와 하루 계획을 함께 관리하는 한국어 Windows 데스크톱 앱입니다. **PHASE 0~4와 PHASE 5A·5B 오프라인 채팅·제공 캐릭터 선택**을 구현했습니다. 인터넷·회원가입·API 키 없이 캐릭터, 할 일, 캘린더, 집중 타이머와 공부 통계를 사용할 수 있습니다.
 
 처음 실행하면 **치이카와·하치와레·우사기** 중 함께할 캐릭터를 고릅니다. 실제 그림·상황별 움직임·대화 말투가 함께 바뀌고 다음 실행에도 유지됩니다. 관리창의 **캐릭터** 메뉴에서 바꾸거나 기본 모루를 사용할 수 있습니다. 채팅은 오프라인 명령 모드이며 자유 AI 대화는 후속 단계입니다.
+
+0.6.0은 **6A API 키 보관** 단계입니다. 설정의 **API 키 관리**에서 본인 키를 마스킹 입력하고 Windows 자격 증명 관리자에 저장·교체·삭제할 수 있습니다. 저장해도 온라인 요청이나 과금은 발생하지 않습니다. **연결 테스트·AI 대화는 아직 미구현**입니다. [키 관리 사용법](docs/API_KEY_GUIDE.md)을 참고하세요.
 
 관리창은 **Ctrl+1~9**로 메뉴를 옮기고, **Ctrl+L**로 채팅 입력에 이동합니다. 채팅 확인은 **Ctrl+Enter**, 카드 취소는 **Escape**, 안내는 **F1**입니다. [키보드·접근성 사용법](docs/KEYBOARD_GUIDE.md)을 참고하세요.
 
@@ -26,7 +28,7 @@
 
 처음 소스를 받았거나 0.1.0 개발 환경에서 업데이트했다면 Python 3.12 이상을 설치한 뒤 `setup_windows.bat` → `run_windows.bat` 순서로 실행합니다. 준비에는 인터넷이 필요하며, 앱 실행에는 인터넷이 필요하지 않습니다.
 
-`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.5.9-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **EXE 실행은 이 PC의 Windows 앱 제어 정책에 막힌 상태이며 0.5.9도 실제 실행·깨끗한 PC 검증은 남아 있습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
+`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.6.0-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **EXE 실행은 이 PC의 Windows 앱 제어 정책에 막힌 상태이며 0.6.0도 실제 실행·깨끗한 PC 검증은 남아 있습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
 
 ## 지금 사용할 수 있는 기능
 
@@ -141,7 +143,7 @@
 .\.venv\Scripts\python.exe tools\native_smoke.py
 ```
 
-자동 테스트 **439개 통과**, 코드 품질 검사 통과. 0.5.9에는 긴 데이터 경로로 설정 화면이 넓어지는 오류를 수정하고 2개 회귀를 추가했습니다. Windows Qt 키보드/접근성/작은 창 33개·수명주기 53개와 100/125/150/200% 등 155개 화면 상태를 확인했습니다. 실제 OS 키 입력과 IME 검사는 자동화 창을 선택할 수 없어 보류했습니다. [0.5.9 검토 기록](docs/AUDIT_REPORT_0.5.9.md)에 결과와 제한을 정리했습니다. 실제 Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
+자동 테스트 **479개 통과**, 코드 품질 검사 통과. 키 저장·마스킹·버퍼 정리·실패/취소·데이터/카드 보존 40개를 추가하고 Windows Qt에서도 재실행했습니다. Windows Qt 4배율의 156개 화면 상태와 실제 Windows 저장 API의 고유 가짜 항목 저장/조회/교체/삭제를 확인했습니다. [6A 검토 기록](docs/PHASE_6A_REPORT.md)에 실행 범위와 제한을 정리했습니다. 실제 키/API 요청은 사용하지 않았습니다. 실제 Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
 
 기존 테스트 임시 폴더의 권한 문제가 있다면 새 경로로 검증할 수 있습니다.
 
@@ -156,4 +158,4 @@ $buddyTestPath = Join-Path $env:TEMP ('desktop-buddy-tests-' + [guid]::NewGuid()
 
 [실행·사용 안내](docs/WINDOWS_GUIDE.md) · [검증 기록](docs/TEST_REPORT.md) · [수동 확인](docs/MANUAL_TESTS.md) · [구조](ARCHITECTURE.md) · [요구사항](REQUIREMENTS.md) · [로드맵](ROADMAP.md) · [변경 기록](CHANGELOG.md) · [원본 명세](docs/MASTER_SPEC.md)
 
-다음은 PHASE 5C 실제 Windows IME·스크린리더·다중 모니터 전환 확인입니다. PHASE 6 AI 연결, 일정 교환과 최종 배포 검증은 남아 있습니다.
+다음 기능은 PHASE 6B의 명시적 연결 테스트·취소 가능한 온라인 요청입니다. 6C AI 명령, 일정 교환과 최종 배포 검증은 남아 있으며 실제 Windows IME·스크린리더·장치 인수는 별도로 계속 확인합니다.

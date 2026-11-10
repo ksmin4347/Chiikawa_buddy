@@ -25,10 +25,34 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QLabel, 
 from desktop_buddy.app import BuddyApplication
 from desktop_buddy.database.store import Store
 from desktop_buddy.models.planning import CalendarEvent, Task
+from desktop_buddy.services.api_key_service import ApiKeyService
 from desktop_buddy.services.single_instance import SingleInstance
+from desktop_buddy.ui.api_key_dialog import ApiKeyDialog
 from desktop_buddy.ui.common import fit_window
 from desktop_buddy.ui.keyboard_help import KeyboardHelp
 from desktop_buddy.ui.planning_dialogs import CategoryDialog, ItemEditor, ScopeDialog
+
+
+class QAKeyVault:
+    """Memory-only data for rendering; never access Windows credentials."""
+
+    value = None
+    fail = False
+
+    def exists(self):
+        if self.fail:
+            raise RuntimeError("QA storage unavailable")
+        return self.value is not None
+
+    def write(self, value):
+        self.value = value
+
+    def read(self):
+        raise AssertionError("The key UI must not read the saved secret")
+
+    def delete(self):
+        self.value = None
+
 
 app = QApplication([])
 for font_file in ("malgun.ttf", "malgunbd.ttf"):
@@ -207,6 +231,27 @@ for theme in ("light", "dark"):
     help_dialog.grab().save(str(output / f"{theme}-keyboard-help.png"))
     help_dialog.close()
     help_dialog.deleteLater()
+    vault = QAKeyVault()
+    key_dialog = ApiKeyDialog(ApiKeyService(vault), buddy.manager)
+    key_dialog.show()
+    for phase in ("empty", "masked", "saved", "error"):
+        canary = "not-a-real-key-for-qa-render"
+        if phase == "masked":
+            key_dialog.input.setText(canary)
+            assert canary not in key_dialog.input.displayText()
+        elif phase == "saved":
+            key_dialog.save()
+            assert not key_dialog.input.text()
+        elif phase == "error":
+            vault.fail = True
+            key_dialog.refresh_status()
+        settle()
+        assert canary not in key_dialog.status.text()
+        results["pages"][theme + "-api-key-" + phase] = inspect(key_dialog)
+        key_dialog.grab().save(str(output / f"{theme}-api-key-{phase}.png"))
+    key_dialog.close()
+    key_dialog.deleteLater()
+    vault.value = None
 
 buddy.settings.update(theme="light")
 results["logo"] = {

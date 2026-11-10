@@ -501,6 +501,11 @@ class ChatService(QObject):
         self.pending = None
         return self._respond(reply, already_saved=True)
 
+    def invalidate_pending(self) -> None:
+        if self.pending is not None:
+            self.pending = None
+            self.changed.emit()
+
     def cancel(self) -> Reply:
         self.pending = None
         return self._respond(Reply(self._say("cancel", "제안을 취소했어요. 변경하지 않았어요.")))

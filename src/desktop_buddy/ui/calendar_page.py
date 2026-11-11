@@ -83,6 +83,8 @@ class DayCell(QFrame):
 
 
 class CalendarPage(QWidget):
+    file_requested = Signal()
+
     def __init__(self, service, settings, actions):
         super().__init__()
         self.service, self.settings, self.actions = service, settings, actions
@@ -94,6 +96,8 @@ class CalendarPage(QWidget):
         header.addWidget(label("캘린더", "title"), 1)
         header.addWidget(button("할 일 추가", lambda: actions.add_task(self.day)))
         header.addWidget(button("일정 추가", lambda: actions.add_event(self.day), True))
+        self.file_button = button("ICS 파일 교환", self.file_requested.emit)
+        header.addWidget(self.file_button)
         layout.addLayout(header)
         self.period_label = label("", "heading")
         self.date_edit = QDateEdit(

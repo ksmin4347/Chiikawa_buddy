@@ -3,7 +3,7 @@ import importlib.util
 import os
 import sys
 from pathlib import Path
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 root = Path(SPECPATH)
 runtime_spec = importlib.util.spec_from_file_location('build_runtime', root / 'tools' / 'build_runtime.py')
@@ -23,10 +23,11 @@ a = Analysis(
              for name in ('manifest.json', 'atlas.png', 'focus_001.png',
                           'focus_002.png', 'focus_003.png')],
            *[(str(root / 'assets' / 'completion_audio' / f'{key}.wav'),
-              'assets/completion_audio') for key in ('chiikawa', 'hachiware', 'usagi')]] + collect_data_files('tzdata'),
+              'assets/completion_audio') for key in ('chiikawa', 'hachiware', 'usagi')]] + collect_data_files('tzdata') + copy_metadata('icalendar'),
     hiddenimports=(collect_submodules('openai.resources.responses')
                    + collect_submodules('openai.types.responses')
-                   + collect_submodules('openai.types.shared')),
+                   + collect_submodules('openai.types.shared')
+                   + collect_submodules('icalendar', filter=lambda name: not name.startswith(('icalendar.tests', 'icalendar.cli')))),
     excludes=['PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.QtQml', 'PySide6.QtQuick',
               'PySide6.QtPdf', 'tkinter', 'pytest'],

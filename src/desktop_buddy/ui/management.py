@@ -159,6 +159,7 @@ class ManagementWindow(QMainWindow):
         self.today_page = TodayPage(planning, self.actions)
         self.pages.addWidget(scroll_page(self.today_page))
         self.calendar_page = CalendarPage(planning, service, self.actions)
+        self.calendar_page.file_requested.connect(self.show_calendar_transfer)
         self.pages.addWidget(scroll_page(self.calendar_page))
         self.focus_page = FocusPage(timer, planning, service)
         self.pages.addWidget(self.focus_page)
@@ -404,6 +405,11 @@ class ManagementWindow(QMainWindow):
         self.api_key_button = button("API 키·연결 관리", self.show_api_key_dialog)
         content.addWidget(self.api_key_button)
         body.addWidget(frame)
+        frame, content = card("캘린더 파일")
+        content.addWidget(label("ICS 파일을 미리 보고 선택한 항목을 가져오거나 내보내요.", "muted"))
+        self.calendar_file_button = button("ICS 파일 교환", self.show_calendar_transfer)
+        content.addWidget(self.calendar_file_button)
+        body.addWidget(frame)
         frame, content = card("데이터와 프로그램")
         content.addWidget(label("설정·계획·집중 기록은 아래 폴더에 보관해요.", "muted"))
         self.data_path = QLineEdit(str(data_dir))
@@ -553,6 +559,20 @@ class ManagementWindow(QMainWindow):
             self.api_key_button
             if self.pages.currentIndex() == self.SETTINGS_PAGE
             else self.chat_page.connection_button
+        )
+        target.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def show_calendar_transfer(self) -> None:
+        from desktop_buddy.ui.calendar_transfer import CalendarTransferDialog
+
+        dialog = CalendarTransferDialog(self.planning, self)
+        dialog.exec()
+        dialog.deleteLater()
+        self.activateWindow()
+        target = (
+            self.calendar_file_button
+            if self.pages.currentIndex() == self.SETTINGS_PAGE
+            else self.calendar_page.file_button
         )
         target.setFocus(Qt.FocusReason.OtherFocusReason)
 

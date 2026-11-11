@@ -323,6 +323,9 @@ def test_schema3_migration_backs_up_focus_records(qapp, tmp_path):
         repository.progress(item_id, 900, 0)
         repository.finish(item_id, now + timedelta(minutes=15), True, "completed")
         for table in (
+            "calendar_links",
+            "calendar_sources",
+            "calendar_identity",
             "chat_messages",
             "chat_sessions",
             "command_operations",

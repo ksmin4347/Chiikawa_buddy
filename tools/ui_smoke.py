@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import uuid
+from dataclasses import replace
 from datetime import datetime, time, timedelta
 from pathlib import Path
 
@@ -24,12 +25,15 @@ from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QLabel, QScrollArea, QWidget
 
 from desktop_buddy.app import BuddyApplication
+from desktop_buddy.calendar.ics_codec import serialize_calendar
 from desktop_buddy.database.store import Store
+from desktop_buddy.models.calendar_transfer import CalendarEntry
 from desktop_buddy.models.online import OnlineResult, ToolProposal
 from desktop_buddy.models.planning import CalendarEvent, Task
 from desktop_buddy.services.api_key_service import ApiKeyService
 from desktop_buddy.services.single_instance import SingleInstance
 from desktop_buddy.ui.api_key_dialog import ApiKeyDialog
+from desktop_buddy.ui.calendar_transfer import CalendarTransferDialog
 from desktop_buddy.ui.common import fit_window
 from desktop_buddy.ui.keyboard_help import KeyboardHelp
 from desktop_buddy.ui.planning_dialogs import CategoryDialog, ItemEditor, ScopeDialog
@@ -159,6 +163,10 @@ def describe(w):
 
 
 def inspect(root):
+    # A worker's busy flag can clear before queued card layout/scroll events finish.
+    # Inspect settled geometry, including widgets revealed by the last result.
+    settle()
+    settle()
     report = {
         "size": [root.width(), root.height()],
         "minimum": [root.minimumSizeHint().width(), root.minimumSizeHint().height()],
@@ -385,6 +393,66 @@ for theme in ("light", "dark"):
     buddy.online.set_enabled(False)
     buddy.online.reset()
     vault.value = None
+
+    transfer_dialog = CalendarTransferDialog(planning, buddy.manager)
+    transfer_dialog.resize(540, 480)
+    transfer_dialog.show()
+    fit_window(transfer_dialog)
+    source_file = output / f"{theme}-exchange.ics"
+    entry_start = datetime.combine(day, time(16), planning.zone)
+    base_entry = CalendarEntry(
+        "qa-exchange-" + theme,
+        "",
+        CalendarEvent(
+            f"가져올 회의 · {theme}",
+            entry_start,
+            entry_start + timedelta(hours=1),
+            description="QA 일정 메모",
+        ),
+    )
+    source_file.write_bytes(serialize_calendar((base_entry,)))
+    transfer_dialog.file_path = source_file
+    transfer_dialog.path_display.setText(str(source_file))
+    transfer_dialog._load()
+    for _ in range(1500):
+        settle()
+        if transfer_dialog._job is None:
+            break
+    assert transfer_dialog.import_plan is not None
+    for state in ("ics-import", "ics-conflict", "ics-export", "ics-error"):
+        if state == "ics-conflict":
+            plan = transfer_dialog.import_plan
+            transfer_dialog.transfer.apply_import(plan.id, {r.id for r in plan.rows if r.action})
+
+            source_file.write_bytes(
+                serialize_calendar(
+                    (
+                        replace(
+                            base_entry,
+                            record=replace(base_entry.record, title="파일에서 바뀐 회의"),
+                        ),
+                    )
+                )
+            )
+            transfer_dialog._load()
+            for _ in range(1500):
+                settle()
+                if transfer_dialog._job is None:
+                    break
+            assert transfer_dialog.import_plan.rows[0].action == "update"
+        elif state == "ics-export":
+            transfer_dialog.tabs.setCurrentIndex(1)
+            transfer_dialog._preview_export()
+            assert transfer_dialog.export_plan is not None
+        elif state == "ics-error":
+            transfer_dialog.status.setText(
+                "파일을 처리하지 못했어요. 파일 위치·권한을 확인해 주세요."
+            )
+        settle()
+        results["pages"][theme + "-" + state] = inspect(transfer_dialog)
+        transfer_dialog.grab().save(str(output / f"{theme}-{state}.png"))
+    transfer_dialog.reject()
+    transfer_dialog.deleteLater()
 
 buddy.settings.update(theme="light")
 results["logo"] = {

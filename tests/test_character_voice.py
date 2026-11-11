@@ -178,6 +178,9 @@ def test_schema5_backup_retains_original_dialogue_and_classifies_as_moru(qapp, t
     path = tmp_path / "buddy.db"
     store = Store(path)
     with store.connection:
+        store.connection.execute("DROP TABLE calendar_links")
+        store.connection.execute("DROP TABLE calendar_sources")
+        store.connection.execute("DROP TABLE calendar_identity")
         store.connection.execute("ALTER TABLE chat_messages DROP COLUMN character_id")
         store.connection.execute("ALTER TABLE chat_messages DROP COLUMN profile_version")
         store.connection.execute("INSERT INTO chat_sessions VALUES ('old','2026-11-03','보존')")
@@ -188,7 +191,9 @@ def test_schema5_backup_retains_original_dialogue_and_classifies_as_moru(qapp, t
         store.connection.execute("PRAGMA user_version=5")
     store.close()
     migrated = Store(path)
-    assert migrated.connection.execute("PRAGMA user_version").fetchone()[0] == 6
+    from desktop_buddy.database.migrations import SCHEMA_VERSION
+
+    assert migrated.connection.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     assert migrated.connection.execute(
         "SELECT body,character_id,profile_version FROM chat_messages"
     ).fetchone() == ("원래 답변 (C:\\work)", "moru", 1)

@@ -1,6 +1,7 @@
 import sqlite3
+from uuid import uuid4
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 
 def migrate(connection: sqlite3.Connection, old_version: int) -> None:
@@ -115,4 +116,21 @@ def migrate(connection: sqlite3.Connection, old_version: int) -> None:
         connection.execute(
             "ALTER TABLE chat_messages ADD COLUMN profile_version INTEGER NOT NULL DEFAULT 1"
         )
+    if old_version < 7:
+        connection.execute("""CREATE TABLE calendar_identity (
+            singleton INTEGER PRIMARY KEY CHECK(singleton=1), namespace TEXT NOT NULL)""")
+        connection.execute("INSERT INTO calendar_identity VALUES (1,?)", (str(uuid4()),))
+        connection.execute("""CREATE TABLE calendar_sources (
+            source_key TEXT PRIMARY KEY, label TEXT NOT NULL, created_at TEXT NOT NULL)""")
+        connection.execute("""CREATE TABLE calendar_links (
+            id INTEGER PRIMARY KEY,
+            source_key TEXT NOT NULL REFERENCES calendar_sources(source_key),
+            uid TEXT NOT NULL, occurrence_key TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('task','event')),
+            task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+            event_id INTEGER REFERENCES calendar_events(id) ON DELETE SET NULL,
+            remote_hash TEXT NOT NULL, local_hash TEXT NOT NULL,
+            remote_modified TEXT, imported_at TEXT NOT NULL,
+            UNIQUE(source_key,uid,occurrence_key),
+            CHECK(NOT(task_id IS NOT NULL AND event_id IS NOT NULL)))""")
     connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")

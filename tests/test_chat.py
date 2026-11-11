@@ -346,7 +346,14 @@ def test_v4_backup_migration_preserves_plans_and_focus(qapp, tmp_path):
         repository.progress(session_id, 10, 0)
         repository.segment(None, session_id, start, start + timedelta(seconds=10), 10)
         repository.finish(session_id, start + timedelta(seconds=10), False, "stopped")
-        for table in ("chat_messages", "chat_sessions", "command_operations"):
+        for table in (
+            "calendar_links",
+            "calendar_sources",
+            "calendar_identity",
+            "chat_messages",
+            "chat_sessions",
+            "command_operations",
+        ):
             store.connection.execute(f"DROP TABLE {table}")
         store.connection.execute("PRAGMA user_version=4")
     store.close()

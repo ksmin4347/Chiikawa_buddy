@@ -188,6 +188,8 @@ SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollb
 
 ## 로컬 ICS 교환 — 0.7.0
 
+0.7.1의 `ui/calendar_integration.py`는 날짜가 있는 공개 조사 결과와 현재 구현된 기능을 읽기 전용으로 표시합니다. `ManagementWindow`는 설정 안내를 닫은 뒤 사용자가 선택한 경우에만 기존 `CalendarTransferDialog`를 엽니다. 안내에서 파일/DB를 변경하거나 브라우저/네트워크/키 저장소를 사용하지 않습니다. Planit 제공자/가짜 연결 상태를 추가하지 않으며 공식 API/파일 지원 근거 미확인과 앱의 직접 연동 미지원을 구분합니다. [조사 결과](docs/PLANIT_INTEGRATION.md)를 따릅니다.
+
 `models/calendar_transfer.py`의 불변 스냅샷과 `calendar/ics_codec.py`의 제한된 순수 파서/직렬화, `calendar/file_io.py`의 파일 교체를 `services/calendar_transfer.py`와 UI에서 분리합니다. 파싱/파일 IO 작업 스레드는 SQLite와 QWidget을 접근하지 않습니다. GUI 서비스가 현재 계획과 비교하고 최종 확인 뒤 저장합니다.
 
 스키마 7의 `calendar_identity`는 자체 내보내기 UID namespace, `calendar_sources`는 사용자 출처 이름, `calendar_links`는 외부 UID/원래 발생일·내용 해시·대상 FK를 저장합니다. 대상 삭제 시 FK만 NULL로 남겨 재추가를 기본 선택하지 않습니다. UID나 원본 수정 시각 자체를 덮어쓰기 승인으로 사용하지 않습니다.

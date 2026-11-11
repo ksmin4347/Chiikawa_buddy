@@ -405,10 +405,19 @@ class ManagementWindow(QMainWindow):
         self.api_key_button = button("API 키·연결 관리", self.show_api_key_dialog)
         content.addWidget(self.api_key_button)
         body.addWidget(frame)
-        frame, content = card("캘린더 파일")
+        frame, content = card("캘린더 파일·연동")
+        from desktop_buddy.ui.calendar_integration import CALENDAR_STATUS_TEXT
+
+        self.calendar_status = label(CALENDAR_STATUS_TEXT, "muted")
+        self.calendar_status.setAccessibleName("캘린더 사용 및 연동 지원 상태")
+        content.addWidget(self.calendar_status)
         content.addWidget(label("ICS 파일을 미리 보고 선택한 항목을 가져오거나 내보내요.", "muted"))
         self.calendar_file_button = button("ICS 파일 교환", self.show_calendar_transfer)
         content.addWidget(self.calendar_file_button)
+        self.calendar_integration_button = button(
+            "캘린더 연동 안내", self.show_calendar_integration
+        )
+        content.addWidget(self.calendar_integration_button)
         body.addWidget(frame)
         frame, content = card("데이터와 프로그램")
         content.addWidget(label("설정·계획·집중 기록은 아래 폴더에 보관해요.", "muted"))
@@ -561,6 +570,18 @@ class ManagementWindow(QMainWindow):
             else self.chat_page.connection_button
         )
         target.setFocus(Qt.FocusReason.OtherFocusReason)
+
+    def show_calendar_integration(self) -> None:
+        from desktop_buddy.ui.calendar_integration import CalendarIntegrationDialog
+
+        dialog = CalendarIntegrationDialog(self)
+        open_file_tool = dialog.exec() == CalendarIntegrationDialog.DialogCode.Accepted
+        dialog.deleteLater()
+        if open_file_tool:
+            self.show_calendar_transfer()
+        else:
+            self.activateWindow()
+            self.calendar_integration_button.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def show_calendar_transfer(self) -> None:
         from desktop_buddy.ui.calendar_transfer import CalendarTransferDialog

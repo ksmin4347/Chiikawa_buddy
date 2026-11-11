@@ -19,7 +19,7 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-from PySide6.QtCore import QCoreApplication, QEvent
+from PySide6.QtCore import QCoreApplication, QEvent, QTimer
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QLabel, QScrollArea, QWidget
@@ -33,6 +33,7 @@ from desktop_buddy.models.planning import CalendarEvent, Task
 from desktop_buddy.services.api_key_service import ApiKeyService
 from desktop_buddy.services.single_instance import SingleInstance
 from desktop_buddy.ui.api_key_dialog import ApiKeyDialog
+from desktop_buddy.ui.calendar_integration import CalendarIntegrationDialog
 from desktop_buddy.ui.calendar_transfer import CalendarTransferDialog
 from desktop_buddy.ui.common import fit_window
 from desktop_buddy.ui.keyboard_help import KeyboardHelp
@@ -393,6 +394,48 @@ for theme in ("light", "dark"):
     buddy.online.set_enabled(False)
     buddy.online.reset()
     vault.value = None
+
+    # Exercise both real modal routes without choosing a file or touching user data.
+    buddy.manager.navigate(buddy.manager.SETTINGS_PAGE)
+    before_integration = list(planning.store.connection.iterdump())
+    integration_errors = []
+    integration_route = []
+
+    def close_file_tool(errors=integration_errors, route=integration_route):
+        active = app.activeModalWidget()
+        try:
+            assert isinstance(active, CalendarTransferDialog)
+            assert active.import_plan is None and active.export_plan is None
+            route.append("file-tool")
+        except Exception as error:
+            errors.append(str(error) or type(error).__name__)
+        finally:
+            if active is not None:
+                active.reject()
+
+    def inspect_integration(
+        current_theme=theme, errors=integration_errors, close_tool=close_file_tool
+    ):
+        active = app.activeModalWidget()
+        try:
+            assert isinstance(active, CalendarIntegrationDialog)
+            active.resize(540, 480)
+            fit_window(active)
+            assert active.details.isReadOnly()
+            results["pages"][current_theme + "-calendar-integration"] = inspect(active)
+            active.grab().save(str(output / f"{current_theme}-calendar-integration.png"))
+            QTimer.singleShot(0, close_tool)
+            active.transfer_button.click()
+        except Exception as error:
+            errors.append(str(error) or type(error).__name__)
+            if active is not None:
+                active.reject()
+
+    QTimer.singleShot(0, inspect_integration)
+    buddy.manager.calendar_integration_button.click()
+    assert not integration_errors, integration_errors
+    assert integration_route == ["file-tool"]
+    assert list(planning.store.connection.iterdump()) == before_integration
 
     transfer_dialog = CalendarTransferDialog(planning, buddy.manager)
     transfer_dialog.resize(540, 480)

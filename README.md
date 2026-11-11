@@ -1,4 +1,4 @@
-# 먼작귀 0.7.0
+# 먼작귀 0.7.1
 
 소스 저장소: [ksmin4347/Chiikawa_buddy](https://github.com/ksmin4347/Chiikawa_buddy)
 
@@ -18,6 +18,8 @@
 
 0.7.0에서는 **캘린더/설정 → ICS 파일 교환**을 추가했습니다. 파일을 미리 보고 선택한 항목만 가져오거나 내보냅니다. 중복·원본 갱신·앱 수정 충돌과 시간 겹침을 구분하고, 갱신은 직접 선택·확인해야 적용합니다. 반복은 선택한 1~366일의 개별 항목으로 교환하며 자동 동기화하지 않습니다. [사용법과 지원 범위](docs/ICS_GUIDE.md) · [7A 검토 기록](docs/PHASE_7A_REPORT.md).
 
+0.7.1에서는 **설정 → 캘린더 연동 안내**에 로컬/파일 교환 상태와 Planit 공개 조사 결과를 표시합니다. 공식 API·구독·ICS 절차는 확인하지 못해 직접 연결은 제공하지 않습니다. 안내에서 기존 ICS 도구를 열 수 있습니다. [조사 근거와 지원 범위](docs/PLANIT_INTEGRATION.md).
+
 ## 5·6단계 설계와 사진 준비
 
 [채팅·캐릭터·AI 설계서](docs/PHASE_5_6_DESIGN.md)와 [사진 넣는 방법](assets/characters/README.md)을 정리했습니다. 0.5.2에는 5B 실제 3종 팩과 첫 선택 화면을 연결했습니다. 사진은 개발자가 준비하고, 앱 사용자는 제공 목록에서 고릅니다. [캐릭터 선택·상태 안내](docs/CHARACTER_GUIDE.md)에서 현재 모습과 새 팩 구성법을 확인할 수 있습니다. AI는 6C의 제한된 작업 제안과 확인 카드까지 구현했으며 실제 계정/모델 인수는 남았습니다.
@@ -30,7 +32,7 @@
 
 처음 소스를 받았거나 0.1.0 개발 환경에서 업데이트했다면 Python 3.12 이상을 설치한 뒤 `setup_windows.bat` → `run_windows.bat` 순서로 실행합니다. 준비에는 인터넷이 필요하며, 앱 실행에는 인터넷이 필요하지 않습니다.
 
-`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.7.0-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **EXE 실행은 이 PC의 Windows 앱 제어 정책에 막힌 상태이며 0.7.0도 실제 실행·깨끗한 PC 검증은 남아 있습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
+`build_windows.bat`은 테스트 후 `dist\DesktopBuddy` 폴더와 `dist\releases\Meonjakgwi-0.7.1-windows-x64.zip`, `.zip.sha256`을 만듭니다. Python 없는 PC용 one-folder EXE 후보이며 ZIP 전체를 압축 해제해야 합니다. 버전·고정 에셋·포함 파일과 해시를 검사합니다. **EXE 실행은 이 PC의 Windows 앱 제어 정책에 막힌 상태이며 0.7.1도 실제 실행·깨끗한 PC 검증은 남아 있습니다.** 현재 확인된 실행 경로는 소스 실행입니다. [빌드·배포 후보 안내](docs/RELEASE_GUIDE.md)를 참고하세요.
 
 ## 지금 사용할 수 있는 기능
 
@@ -146,7 +148,7 @@
 .\.venv\Scripts\python.exe tools\native_smoke.py
 ```
 
-자동 회귀 **732개**, Windows Qt 관련 **208개**가 통과했습니다. 4개 프로세스 배율의 화면 **244상태**에서 자동 배치 오류 0건을 확인했습니다. [검증 기록](docs/TEST_REPORT.md), ICS의 지원 범위와 수정 사항은 [7A 검토 기록](docs/PHASE_7A_REPORT.md)에 정리했습니다. 실제 사용자 DB/키/API 요청은 사용하지 않았습니다. 실제 외부 캘린더 파일 호환·API 인증/과금·Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
+자동 회귀 **732개**, 이번 변경과 관련된 Windows Qt **117개**가 통과했습니다. 4개 프로세스 배율의 화면 **252상태**에서 자동 배치 오류 0건을 확인했습니다. [검증 기록](docs/TEST_REPORT.md), ICS의 지원 범위는 [7A 기록](docs/PHASE_7A_REPORT.md), Planit 조사는 [7B 기록](docs/PLANIT_INTEGRATION.md)에 정리했습니다. 실제 사용자 DB/키/API 요청은 사용하지 않았습니다. 실제 외부 캘린더 파일 호환·API 인증/과금·Windows IME·스크린리더·OS 트레이/알림·절전·혼합 DPI·Windows 10·EXE 실행은 수동 확인 대상입니다.
 
 기존 테스트 임시 폴더의 권한 문제가 있다면 새 경로로 검증할 수 있습니다.
 
@@ -161,4 +163,4 @@ $buddyTestPath = Join-Path $env:TEMP ('desktop-buddy-tests-' + [guid]::NewGuid()
 
 [실행·사용 안내](docs/WINDOWS_GUIDE.md) · [검증 기록](docs/TEST_REPORT.md) · [수동 확인](docs/MANUAL_TESTS.md) · [구조](ARCHITECTURE.md) · [요구사항](REQUIREMENTS.md) · [로드맵](ROADMAP.md) · [변경 기록](CHANGELOG.md) · [원본 명세](docs/MASTER_SPEC.md)
 
-다음 기능은 PHASE 7B의 Planit KR 공식 API/파일 교환 지원 조사입니다. 지원 근거를 확인한 방식만 연결하며, 실제 외부 파일·API 계정·Windows 입력/장치와 최종 배포 인수는 별도로 남아 있습니다.
+7B 공개 자료 조사를 완료했습니다. Planit 공식 API/파일 교환 절차는 확인하지 못해 직접 연결은 미지원으로 남겼습니다. 다음은 8A 통합 안정성·복구 검증이며, 실제 외부 파일·API 계정·Windows 입력/장치와 최종 배포 인수는 별도로 남아 있습니다.

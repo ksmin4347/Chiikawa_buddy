@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QAbstractButton, QApplication, QComboBox, QLabel, 
 
 from desktop_buddy.app import BuddyApplication
 from desktop_buddy.database.store import Store
-from desktop_buddy.models.online import OnlineResult
+from desktop_buddy.models.online import OnlineResult, ToolProposal
 from desktop_buddy.models.planning import CalendarEvent, Task
 from desktop_buddy.services.api_key_service import ApiKeyService
 from desktop_buddy.services.single_instance import SingleInstance
@@ -60,6 +60,7 @@ class QAResponses:
     """UI states only: no HTTP or credential reads."""
 
     delay = 0.001
+    proposal = None
 
     async def run(self, vault, request, cancelled, *, before_send=None):
         if before_send is not None:
@@ -69,6 +70,7 @@ class QAResponses:
             text="OK" if request.kind == "test" else "가짜 AI 답변으로 만든 화면이에요.",
             input_tokens=7,
             output_tokens=9,
+            proposal=self.proposal if request.allow_actions else None,
         )
 
 
@@ -324,6 +326,62 @@ for theme in ("light", "dark"):
             break
     results["pages"][theme + "-ai-reply"] = inspect(buddy.manager)
     buddy.manager.grab().save(str(output / f"{theme}-ai-reply.png"))
+    buddy.online.set_actions_allowed(True)
+    qa_responses.proposal = ToolProposal(
+        "propose_add_item",
+        json.dumps(
+            dict(
+                title=("AI 검증용 긴 제목 " * 12).strip(),
+                item_kind="task",
+                day=day.isoformat(),
+                start=None,
+                end=None,
+                all_day=False,
+            ),
+            ensure_ascii=False,
+        ),
+    )
+    buddy.manager.chat_page.input.setText("복습을 추가해 줘")
+    buddy.manager.chat_page.send_button.click()
+    for _ in range(600):
+        settle()
+        if not buddy.online.busy:
+            break
+    assert buddy.chat.pending is not None and buddy.chat.pending.source == "ai"
+    for state in ("ai-proposal", "ai-applied"):
+        if state == "ai-applied":
+            buddy.manager.chat_page.confirm_button.click()
+            assert buddy.chat.pending is None
+        settle()
+        results["pages"][theme + "-" + state] = inspect(buddy.manager)
+        buddy.manager.grab().save(str(output / f"{theme}-{state}.png"))
+    for _ in range(2):
+        planning.save(Task("AI 동명 대상", day))
+    qa_responses.proposal = ToolProposal(
+        "propose_change_item",
+        json.dumps(
+            dict(
+                action="delete",
+                item_kind="task",
+                day=day.isoformat(),
+                title="AI 동명 대상",
+                destination=None,
+            ),
+            ensure_ascii=False,
+        ),
+    )
+    buddy.manager.chat_page.input.setText("AI 동명 대상을 삭제해 줘")
+    buddy.manager.chat_page.send_button.click()
+    for _ in range(600):
+        settle()
+        if not buddy.online.busy:
+            break
+    assert buddy.chat.pending is not None and buddy.chat.pending.choices
+    results["pages"][theme + "-ai-choices"] = inspect(buddy.manager)
+    buddy.manager.grab().save(str(output / f"{theme}-ai-choices.png"))
+    buddy.online.set_actions_allowed(False)
+    assert buddy.chat.pending is None
+    qa_responses.proposal = None
     buddy.online.set_enabled(False)
     buddy.online.reset()
     vault.value = None

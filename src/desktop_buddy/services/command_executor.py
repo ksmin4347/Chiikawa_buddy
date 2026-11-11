@@ -117,6 +117,20 @@ class CommandExecutor:
             ):
                 extra = "\n종료 시각: 시작 1시간 후 (기본값)"
             return f"추가할 내용\n{describe(record)}\n분류 없음 · 반복 없음{extra}"
+        if kind in ("timer_start", "timer_pause", "timer_resume"):
+            if kind == "timer_start":
+                if self.timer.status in ("running", "paused"):
+                    raise ValueError("진행 중인 타이머를 먼저 중지해 주세요.")
+                return (
+                    f"타이머 시작\n{PHASE_LABELS[intent.values['phase']]} · "
+                    f"{intent.values['minutes']}분\n할 일 연결 없음 · 분류 없음"
+                )
+            needed = "running" if kind == "timer_pause" else "paused"
+            if self.timer.status != needed:
+                raise ValueError("타이머 상태를 다시 확인해 주세요.")
+            return (
+                "타이머 일시정지" if kind == "timer_pause" else "타이머 재개"
+            ) + f"\n{PHASE_LABELS[self.timer.phase]} · 현재 세션에 적용"
         if kind in ("timer_stop", "timer_reset"):
             timer = self.timer
             status_label = (

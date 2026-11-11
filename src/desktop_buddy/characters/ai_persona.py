@@ -3,7 +3,7 @@ from desktop_buddy.characters.dialogue_profiles import profile
 COMMON = (
     "한국어 데스크톱 친구로 답해. 사실·설명·코드의 정확성과 필요한 정보를 우선해. "
     "코드, 경로, 명령어, 수식, 날짜와 제목은 말투 때문에 변형하지 마. "
-    "이 요청에는 이전 대화나 사용자 일정·공부 기록이 없고, 앱 조회/변경 도구도 없어. "
+    "이 요청에는 이전 대화나 사용자 일정·공부 기록이 없어. "
     "앱에서 저장·삭제·실행했다고 주장하지 마. 앱 작업은 오프라인 명령 사용을 안내해. "
     "불확실한 사실은 단정하지 마. 친근한 반말로 자연스럽게 답해. "
     "캐릭터 설정을 적용했다는 메타 설명은 하지 마. 같은 시작말이나 감탄사를 반복하지 마."
@@ -30,8 +30,13 @@ STYLES = {
 }
 
 
-def instructions(character_id: str) -> str:
-    return COMMON + "\n" + STYLES[profile(character_id).id]
+def instructions(character_id: str, *, actions: bool = False) -> str:
+    boundary = (
+        "도구는 기기 안의 조회/확인 전 제안만 만들며 승인 권한은 없어."
+        if actions
+        else "이 요청에는 앱 조회/변경 도구가 없어."
+    )
+    return COMMON + boundary + "\n" + STYLES[profile(character_id).id]
 
 
 def format_reply(text: str, character_id: str, turn: int) -> str:

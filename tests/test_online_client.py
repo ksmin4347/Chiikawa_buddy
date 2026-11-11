@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import logging
 import threading
@@ -68,11 +69,20 @@ def test_request_is_stateless_minimal_and_ignores_environment_routing(monkeypatc
         return httpx2.Response(200, json=reply())
 
     with caplog.at_level(logging.DEBUG, logger="openai._base_client"):
-        result = run_client(handler, vault=vault)
-        logging.getLogger("openai._base_client").debug(vault.value)
+        child = logging.getLogger("openai._base_client")
+        direct = io.StringIO()
+        direct_handler = logging.StreamHandler(direct)
+        child.addHandler(direct_handler)
+        child.disabled = False
+        try:
+            result = run_client(handler, vault=vault)
+            child.debug(vault.value)
+        finally:
+            child.removeHandler(direct_handler)
     assert result.text == "테스트 답변" and result.input_tokens == 12
     assert result.output_tokens == 9 and len(observed) == 1
     assert vault.value not in caplog.text
+    assert not direct.getvalue()
 
 
 @pytest.mark.parametrize(

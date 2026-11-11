@@ -8,6 +8,14 @@ class OnlineRequest:
     model: str
     text: str
     character_id: str
+    allow_actions: bool = False
+    local_date: str = ""
+
+
+@dataclass(frozen=True, repr=False)
+class ToolProposal:
+    name: str
+    arguments: str
 
 
 @dataclass(frozen=True, repr=False)
@@ -16,6 +24,7 @@ class OnlineResult:
     input_tokens: int | None = None
     output_tokens: int | None = None
     error: str = ""
+    proposal: ToolProposal | None = None
 
 
 class OnlineError(Exception):

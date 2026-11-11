@@ -34,6 +34,7 @@ class Pending:
     fingerprint: str
     target: Occurrence | None = None
     choices: dict[str, Any] = field(default_factory=dict)
+    source: str = "offline"
 
 
 class ChatInputError(ValueError):

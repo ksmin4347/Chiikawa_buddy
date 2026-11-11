@@ -4,11 +4,13 @@ from uuid import uuid4
 
 from PySide6.QtCore import QObject, Signal
 
+from desktop_buddy.ai.proposals import decode
 from desktop_buddy.characters.dialogue_profiles import PROFILE_IDS
 from desktop_buddy.characters.dialogue_voice import DialogueVoice
 from desktop_buddy.chat.parser import HELP, parse, validate_input
 from desktop_buddy.database.chat_repository import ChatRepository
 from desktop_buddy.models.chat import ChatInputError, Choice, Intent, Pending, Reply
+from desktop_buddy.models.online import ToolProposal
 from desktop_buddy.services.command_executor import (
     PHASE_LABELS,
     SCOPE_LABELS,
@@ -202,6 +204,14 @@ class ChatService(QObject):
         self._remember("assistant", text, mode="ai")
         self.reply = Reply(text, character_id=self.character_id)
         self.changed.emit()
+
+    def accept_proposal(self, proposal: ToolProposal) -> Reply:
+        intent = decode(proposal)
+        if intent.kind in ("list", "study", "status"):
+            today = self.timer.clock.now().astimezone(self.planning.zone).date()
+            # Local data is rendered by the app, never sent back to the model.
+            return self._respond(Reply(self._read(intent, today)))
+        return self._propose(intent, source="ai")
 
     def _respond(self, reply: Reply, already_saved: bool = False) -> Reply:
         if not already_saved:
@@ -397,7 +407,13 @@ class ChatService(QObject):
         return pending
 
     def _choices(
-        self, intent: Intent, options: list[tuple[str, tuple]], text: str, target=None
+        self,
+        intent: Intent,
+        options: list[tuple[str, tuple]],
+        text: str,
+        target=None,
+        *,
+        source: str = "offline",
     ) -> Reply:
         choices = {str(uuid4()): (label, value) for label, value in options}
         request_id = str(uuid4())
@@ -422,11 +438,14 @@ class ChatService(QObject):
             self.executor.fingerprint(intent, target),
             target,
             choices,
+            source=source,
         )
         self.changed.emit()
         return result
 
-    def _propose(self, intent: Intent, target=None, scope: str | None = None) -> Reply:
+    def _propose(
+        self, intent: Intent, target=None, scope: str | None = None, *, source: str = "offline"
+    ) -> Reply:
         kind = intent.kind
         if kind == "add" and intent.values["kind"] is None:
             return self._choices(
@@ -436,6 +455,7 @@ class ChatService(QObject):
                     for label, value in (("할 일", "task"), ("일정", "event"))
                 ],
                 "할 일과 일정 중 어떤 항목으로 추가할까요?",
+                source=source,
             )
         if kind in ("move", "delete", "complete", "uncomplete") and target is None:
             day, title = intent.values["day"], intent.values["title"]
@@ -467,6 +487,7 @@ class ChatService(QObject):
                         for item in matches
                     ],
                     "같은 제목이 여러 개예요. 대상을 선택해 주세요.",
+                    source=source,
                 )
             target = matches[0]
         if target and target.repeated and kind in ("move", "delete") and scope is None:
@@ -475,6 +496,7 @@ class ChatService(QObject):
                 [(label, (intent, target, value)) for value, label in SCOPE_LABELS.items()],
                 "반복 항목의 변경 범위를 선택해 주세요.",
                 target,
+                source=source,
             )
         scope = scope or "one"
         intent = replace(intent, values=dict(intent.values, scope=scope))
@@ -497,6 +519,7 @@ class ChatService(QObject):
             self.timer.clock.now() + timedelta(minutes=5),
             self.executor.fingerprint(intent, target),
             target,
+            source=source,
         )
         self.changed.emit()
         return result
@@ -513,7 +536,7 @@ class ChatService(QObject):
             self.pending = None
             raise ValueError("대상이 바뀌었어요. 명령을 다시 입력해 주세요.")
         _, (intent, target, scope) = pending.choices[choice_key]
-        return self._propose(intent, target, scope)
+        return self._propose(intent, target, scope, source=pending.source)
 
     def confirm(self, request_id: str) -> Reply:
         if self.repository.completed(request_id):

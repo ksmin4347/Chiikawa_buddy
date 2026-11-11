@@ -24,6 +24,8 @@ ERRORS = {
     "incomplete": "답변을 끝까지 받지 못했어요. 질문을 줄이거나 모델을 확인해 주세요.",
     "refused": "이 요청의 답변을 제공하지 못했어요. 질문을 바꿔 주세요.",
     "response": "지원하는 텍스트 응답을 받지 못했어요. 앱 작업은 실행하지 않았어요.",
+    "proposal": "AI 제안을 확인하지 못했어요. 날짜·제목·타이머 상태를 확인해 다시 요청해 주세요.",
+    "date_changed": "기준 날짜가 바뀌었어요. 현재 날짜를 확인하고 다시 요청해 주세요.",
     "sensitive": "비밀 값으로 보이는 내용을 감지했어요. 해당 내용은 대화에 표시·저장하지 않았어요.",
     "cancelled": "요청을 취소했어요. 이미 전송된 요청의 처리·요금은 취소되지 않을 수 있어요.",
     "setup": "온라인 구성 요소가 없어요. 소스 실행은 setup_windows.bat으로 준비해 주세요.",
@@ -42,6 +44,7 @@ class OnlineService(QObject):
         self.client = client if client is not None else ResponsesClient()
         self.deadline = deadline
         self.enabled = self.ready = self._closed = False
+        self.actions_allowed = False
         self.status = "기본은 오프라인이에요. 연결 테스트 후 직접 AI 대화를 켤 수 있어요."
         self.usage = None
         self.last_error = ""
@@ -80,6 +83,7 @@ class OnlineService(QObject):
         self.enabled = bool(enabled)
         self.chat.invalidate_pending()
         if not enabled:
+            self.actions_allowed = False
             self.cancel()
         if self._active is None and not (was_active and not enabled):
             self.status = (
@@ -88,6 +92,20 @@ class OnlineService(QObject):
                 else "오프라인 명령 모드예요. 네트워크 요청을 보내지 않아요."
             )
         self.changed.emit()
+
+    def set_actions_allowed(self, allowed: bool) -> None:
+        if allowed and not self.enabled:
+            raise ValueError("온라인 AI 대화를 먼저 켜 주세요.")
+        if bool(allowed) != self.actions_allowed:
+            self.cancel()
+            self.chat.invalidate_pending()
+            self.actions_allowed = bool(allowed)
+            self.status = (
+                "AI 작업 제안을 허용했어요. 변경은 확인 후 적용하며 조회 결과는 AI에 보내지 않아요."
+                if allowed
+                else "AI 작업 제안을 껐어요. 텍스트 대화만 가능해요."
+            )
+            self.changed.emit()
 
     def test_connection(self) -> str:
         return self._start("test", "Connection test. Reply with OK only.")
@@ -121,7 +139,18 @@ class OnlineService(QObject):
     def _start(self, kind: str, text: str) -> str:
         if self.busy or self._closed:
             raise ValueError("이전 요청이 끝난 뒤 다시 시도해 주세요.")
-        request = OnlineRequest(str(uuid4()), kind, self._model, text, self.chat.character_id)
+        request = OnlineRequest(
+            str(uuid4()),
+            kind,
+            self._model,
+            text,
+            self.chat.character_id,
+            allow_actions=kind == "chat" and self.actions_allowed,
+            local_date=self.chat.timer.clock.now()
+            .astimezone(self.chat.planning.zone)
+            .date()
+            .isoformat(),
+        )
         self._active = request
         self._job = OnlineJob(request, self.keys.vault, self.client, self.signals, self.deadline)
         self.usage = None
@@ -136,6 +165,9 @@ class OnlineService(QObject):
         return request.id
 
     def cancel(self) -> None:
+        pending_ai = self.chat.pending is not None and self.chat.pending.source == "ai"
+        if pending_ai:
+            self.chat.invalidate_pending()
         active, self._active = self._active, None
         if self._job is not None:
             self._job.cancel()
@@ -146,10 +178,14 @@ class OnlineService(QObject):
             if active.kind == "chat":
                 self.completed.emit(active.id, False)
             self.changed.emit()
+        elif pending_ai:
+            self.status = "AI 작업 제안을 취소했어요. 앱 작업은 실행하지 않았어요."
+            self.changed.emit()
 
     def reset(self) -> None:
         self.cancel()
         self.ready = self.enabled = False
+        self.actions_allowed = False
         self.last_error = ""
         self.status = "키·모델이 바뀌었어요. 연결 테스트를 다시 해 주세요."
         self.usage = None
@@ -172,18 +208,31 @@ class OnlineService(QObject):
         self.last_error = error
         if not error and (
             not isinstance(result.text, str)
-            or not result.text.strip()
+            or (not result.text.strip() and result.proposal is None)
             or len(result.text) > MAX_REPLY_CHARACTERS
             or looks_secret(result.text, assignments=False)
         ):
             error = "response"
         success = not error
+        if success and result.proposal is not None:
+            today = (
+                self.chat.timer.clock.now().astimezone(self.chat.planning.zone).date().isoformat()
+            )
+            if not active.allow_actions or not self.actions_allowed or active.kind != "chat":
+                success, error = False, "proposal"
+            elif active.local_date != today:
+                success, error = False, "date_changed"
         self.usage = (token_count(result.input_tokens), token_count(result.output_tokens))
         if success and active.kind == "chat":
             turn = self._turns[active.character_id]
             try:
-                self.chat.accept_online(format_reply(result.text, active.character_id, turn))
+                if result.proposal is not None:
+                    self.chat.accept_proposal(result.proposal)
+                else:
+                    self.chat.accept_online(format_reply(result.text, active.character_id, turn))
                 self._turns[active.character_id] += 1
+            except ValueError:
+                success, error = False, "proposal"
             except Exception:
                 success, error = False, "storage"
         self.last_error = error
@@ -192,12 +241,17 @@ class OnlineService(QObject):
             self.status = (
                 "선택한 모델의 연결을 확인했어요. AI 대화는 직접 켜 주세요."
                 if active.kind == "test"
+                else "AI 작업 제안이에요. 내용을 확인한 뒤에만 적용돼요."
+                if result.proposal is not None and self.chat.pending is not None
+                else "앱이 기기 안에서 조회했어요. 결과를 AI에 보내지 않았어요."
+                if result.proposal is not None
                 else "AI 답변이에요. 계획·타이머 작업은 실행하지 않았어요."
             )
         else:
             self.status = ERRORS.get(error, ERRORS["unknown"])
             if error in ("auth", "permission", "model", "key_missing", "key_store"):
                 self.ready = self.enabled = False
+                self.actions_allowed = False
         if active.kind == "chat":
             self.completed.emit(request_id, success)
         self.changed.emit()
@@ -206,3 +260,4 @@ class OnlineService(QObject):
         self._closed = True
         self.cancel()
         self.ready = self.enabled = False
+        self.actions_allowed = False

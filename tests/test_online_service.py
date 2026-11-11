@@ -28,6 +28,7 @@ class DelayedClient:
         self.ignore_cancel = False
         self.error = ""
         self.text = "답변 원문\nC:\\work\\print(x).py"
+        self.proposal = None
 
     async def run(self, vault, request, cancelled, *, before_send=None):
         if before_send is not None:
@@ -43,7 +44,9 @@ class DelayedClient:
             await asyncio.sleep(0.03)
         if self.error:
             raise OnlineError(self.error)
-        return OnlineResult(text=self.text, input_tokens=7, output_tokens=11)
+        return OnlineResult(
+            text=self.text, input_tokens=7, output_tokens=11, proposal=self.proposal
+        )
 
 
 def settle(qapp, predicate, seconds=3):

@@ -185,3 +185,9 @@ SQLite `Store.transaction()`은 가장 바깥에서 BEGIN IMMEDIATE/commit/rollb
 `OpenAITransport`는 고정 HTTPS Responses 경로·TLS·리다이렉트 금지·환경 프록시 무시·1 MiB 제한을 맡는다. SDK/HTTP 재시도는 끈다. 이전 대화/DB를 요청에 첨부하지 않고 도구를 허용하지 않는다. 전체 60초 제한과 취소를 사용하며 강제 스레드 종료나 GUI의 join 대기는 하지 않는다. 이미 전송된 요청/요금 취소는 보장하지 않는다.
 
 `characters/ai_persona.py`가 말투 지침과 우사기 외곽 형식을 담당한다. 응답의 명령 문장은 실행기에 연결하지 않는다. 기존 스키마 6의 메시지 mode와 화자 메타데이터를 사용하며 과거 답변을 다시 작성하지 않는다. 비밀이 아닌 모델 ID만 설정에 저장하고 온라인 활성화는 실행 중에만 유지한다.
+
+## AI 작업 제안 — 0.6.2
+
+`ai/proposals.py`는 전송용 strict 함수 명세와 수신 인수의 독립 검증을 담당한다. 이름·추가/누락/중복 키·정확한 타입·평면 구조·4,096자·비밀 패턴·제목·날짜/시각·타이머 한도를 확인한 뒤 기존 `Intent`로 변환한다. `ResponsesClient`는 별도 허용된 chat 요청에만 이 함수를 보내고 병렬 호출을 끈다. 알 수 없는 출력/복수 호출을 거부하고 함수 제안이 있으면 모델 자연어 완료 주장을 버린다. 키가 포함된 인수는 작업 스레드에서 차단한다.
+
+`OnlineService`는 실행 중 허용/요청 당시 기준 날짜를 묶고 GUI에서 다시 검증한다. `ChatService.accept_proposal`은 로컬 조회를 앱 결과로 표시하거나 `Pending(source='ai')`를 만든다. 선택·카드 갱신에도 출처를 보존하며 실제 실행은 기존 CommandExecutor에 맡긴다. 모든 AI 타이머 제어도 확인을 거친다. 반환 조회 결과·function_call_output·DB 목록을 모델에 보내는 경로는 없다. DB 스키마 6과 기존 메시지 mode를 유지하고 앱이 만든 카드/실행 결과와 일반 AI 문장을 구분한다.

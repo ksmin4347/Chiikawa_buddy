@@ -111,6 +111,14 @@ class ChatPage(QWidget):
         body.addWidget(self.transcript, 1)
         self.proposal, content = card("실행 전 확인 · 5분 후 만료")
         self.proposal.setAccessibleName("실행 전 확인 카드")
+        self.proposal_source = label("AI 작업 제안 · 날짜·대상·범위를 확인한 뒤 적용하세요.")
+        content.addWidget(self.proposal_source)
+        self.proposal_summary = QPlainTextEdit()
+        self.proposal_summary.setReadOnly(True)
+        self.proposal_summary.setMinimumHeight(72)
+        self.proposal_summary.setMaximumHeight(112)
+        self.proposal_summary.setAccessibleName("AI 작업 제안 상세")
+        content.addWidget(self.proposal_summary)
         self.choices = QComboBox()
         self.choices.setAccessibleName("대상 또는 변경 범위 선택")
         self.choices.setMinimumContentsLength(12)
@@ -142,10 +150,16 @@ class ChatPage(QWidget):
             self.ai_cancel = button("요청 취소", online.cancel)
             row.addWidget(self.ai_cancel)
             body.addLayout(row)
+            self.ai_actions = QCheckBox("AI 작업 제안 허용 · 변경은 확인 후 적용")
+            self.ai_actions.toggled.connect(
+                lambda allowed: self._run(lambda: online.set_actions_allowed(allowed))
+            )
+            body.addWidget(self.ai_actions)
             body.addWidget(
                 label(
-                    "AI는 현재 문장·캐릭터 설명만 OpenAI에 보내며 API 비용이 발생할 수 있어요. "
-                    "이전 대화·일정·공부 기록은 자동 전송하지 않아요.",
+                    "AI는 현재 문장·캐릭터 설명을 보내며 API 비용이 발생할 수 있어요. "
+                    "작업 제안 시 기준 날짜도 보내요. "
+                    "이전 대화·일정·공부 기록·조회 결과는 보내지 않아요.",
                     "muted",
                 )
             )
@@ -331,6 +345,13 @@ class ChatPage(QWidget):
         parent = self.parentWidget()
         while parent is not None:
             if isinstance(parent, QScrollArea):
+                if self.service.pending is not None and self.service.pending.source == "ai":
+                    parent.ensureWidgetVisible(self.proposal_source, 8, 8)
+                    corner = self.confirm_button.mapTo(
+                        parent.widget(), self.confirm_button.rect().bottomRight()
+                    )
+                    parent.ensureVisible(corner.x(), corner.y(), 8, 8)
+                    return
                 parent.ensureWidgetVisible(self.input, 8, 8)
                 corner = self.input.mapTo(parent.widget(), self.input.rect().bottomRight())
                 parent.ensureVisible(corner.x(), corner.y(), 8, 12)
@@ -366,6 +387,9 @@ class ChatPage(QWidget):
         previous_request = self._request_id
         self._request_id = pending.request_id if pending else None
         self.proposal.setVisible(pending is not None)
+        self.proposal_source.setVisible(pending is not None and pending.source == "ai")
+        self.proposal_summary.setVisible(pending is not None and pending.source == "ai")
+        self.proposal_summary.setPlainText(pending.summary if pending else "")
         self.choices.clear()
         if pending:
             for key, (title, _) in pending.choices.items():
@@ -399,6 +423,9 @@ class ChatPage(QWidget):
         online = self.online
         with QSignalBlocker(self.ai_enabled):
             self.ai_enabled.setChecked(online.enabled)
+        with QSignalBlocker(self.ai_actions):
+            self.ai_actions.setChecked(online.actions_allowed)
+        self.ai_actions.setEnabled(online.enabled)
         self.ai_cancel.setVisible(online.busy)
         self.send_button.setText("AI로 보내기" if online.enabled else "보내기")
         self.send_button.setEnabled(not (online.enabled and online.busy))
@@ -425,6 +452,9 @@ class ChatPage(QWidget):
             self._sent_id = self._sent_text = None
 
     def hideEvent(self, event) -> None:
-        if self.online is not None and self.online.kind == "chat":
+        if self.online is not None and (
+            self.online.kind == "chat"
+            or (self.service.pending is not None and self.service.pending.source == "ai")
+        ):
             self.online.cancel()
         super().hideEvent(event)

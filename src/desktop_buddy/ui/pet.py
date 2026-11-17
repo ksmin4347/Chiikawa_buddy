@@ -1,3 +1,5 @@
+from weakref import proxy
+
 from PySide6.QtCore import QPoint, Qt, QTimer, Signal
 from PySide6.QtGui import QBitmap, QGuiApplication, QPainter, QRegion
 from PySide6.QtWidgets import QApplication, QMenu, QWidget
@@ -40,7 +42,8 @@ class PetWindow(QWidget):
         self.setToolTip("한 번 클릭하면 인사 · 더블클릭하면 관리창 · 드래그로 이동")
         self.animation = animation
         self.settings = settings
-        self.voice = DialogueVoice(lambda: self.settings.chat_character_id)
+        owner = proxy(self)
+        self.voice = DialogueVoice(lambda: owner.settings.chat_character_id)
         self.bubble = SpeechBubble()
         self.bubble_explicit = False
         self.bubble_essential = False

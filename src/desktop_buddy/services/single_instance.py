@@ -1,12 +1,14 @@
 import hashlib
 from pathlib import Path
 
-from PySide6.QtCore import QLockFile, QObject, Signal
+from PySide6.QtCore import QLockFile, QObject, QTimer, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 
 class SingleInstance(QObject):
     activation_requested = Signal()
+    MAX_CLIENTS = 8
+    CLIENT_TIMEOUT_MS = 2000
 
     def __init__(self, data_dir: Path):
         super().__init__()
@@ -16,9 +18,11 @@ class SingleInstance(QObject):
         self.lock.setStaleLockTime(0)
         self.server = QLocalServer(self)
         self.server.setSocketOptions(QLocalServer.SocketOption.UserAccessOption)
+        self.server.setMaxPendingConnections(self.MAX_CLIENTS)
         self.server.newConnection.connect(self._receive)
         self._clients: list[QLocalSocket] = []
         self._buffers: dict[QLocalSocket, bytes] = {}
+        self._deadlines: dict[QLocalSocket, QTimer] = {}
 
     def acquire(self) -> bool:
         if not self.lock.tryLock(0):
@@ -43,15 +47,28 @@ class SingleInstance(QObject):
     def _receive(self) -> None:
         while self.server.hasPendingConnections():
             socket = self.server.nextPendingConnection()
+            if len(self._clients) >= self.MAX_CLIENTS:
+                socket.abort()
+                socket.deleteLater()
+                continue
+            # Four command bytes plus one byte to detect an oversized request.
+            socket.setReadBufferSize(5)
             self._clients.append(socket)
             self._buffers[socket] = b""
+            deadline = QTimer(socket)
+            deadline.setSingleShot(True)
+            deadline.timeout.connect(socket.abort)
+            self._deadlines[socket] = deadline
             socket.readyRead.connect(lambda s=socket: self._activate(s))
             socket.disconnected.connect(lambda s=socket: self._release(s))
+            deadline.start(self.CLIENT_TIMEOUT_MS)
             if socket.bytesAvailable():
                 self._activate(socket)
 
     def _activate(self, socket: QLocalSocket) -> None:
-        self._buffers[socket] += socket.readAll().data()
+        if socket not in self._buffers:
+            return
+        self._buffers[socket] += socket.read(5 - len(self._buffers[socket]))
         if len(self._buffers[socket]) < 4:
             return
         if self._buffers[socket] == b"show":
@@ -61,13 +78,16 @@ class SingleInstance(QObject):
         socket.disconnectFromServer()
 
     def _release(self, socket: QLocalSocket) -> None:
-        if socket in self._clients:
-            self._clients.remove(socket)
+        if socket not in self._clients:
+            return
+        self._clients.remove(socket)
         self._buffers.pop(socket, None)
+        self._deadlines.pop(socket).stop()
         socket.deleteLater()
 
     def close(self) -> None:
+        self.server.close()
         for socket in self._clients[:]:
             socket.abort()
-        self.server.close()
+            self._release(socket)
         self.lock.unlock()

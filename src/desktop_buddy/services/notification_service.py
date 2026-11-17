@@ -51,16 +51,19 @@ class NotificationService(QObject):
             reminders = self.planning.reminders_between(lower, now)
             quiet = self.muted(now)
             claimed = []
-            with self.planning.store.connection:
+            store = self.planning.store
+            previous_check = self.last_check
+            with store.transaction():
+                store.on_rollback(lambda: setattr(self, "last_check", previous_check))
                 for reminder in reminders:
                     if self.planning.repository.claim_notification(
                         reminder.key, now.isoformat(), "suppressed" if quiet else "shown"
                     ):
                         claimed.append(reminder)
-            self.last_check = now
-            if claimed and not quiet:
-                # One batch prevents notification storms after wake or several simultaneous events.
-                self.due.emit(claimed)
+                self.last_check = now
+                if claimed and not quiet:
+                    # Publish one batch only after the entire outer transaction commits.
+                    store.emit_after_commit(self.due, claimed)
         except Exception as error:
             logging.getLogger(__name__).warning("Reminder check failed (%s)", type(error).__name__)
             self.failed.emit("알림을 확인하지 못했어요. 저장 공간과 날짜 설정을 확인해 주세요.")

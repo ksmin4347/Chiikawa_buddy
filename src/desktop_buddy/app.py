@@ -1,6 +1,7 @@
 import logging
 from hashlib import sha256
 from pathlib import Path
+from weakref import proxy
 
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
@@ -45,6 +46,7 @@ class BuddyApplication:
         api_keys: ApiKeyService | None = None,
         online_client=None,
     ):
+        owner = proxy(self)
         self.app = app
         self.store = store
         self.guard = guard
@@ -98,12 +100,28 @@ class BuddyApplication:
             self.api_keys,
             self.online,
         )
+        # Internally created services share the management window's Qt lifetime.
+        # External key stores/instance guards remain owned by their callers.
+        for service in (
+            self.settings,
+            self.characters,
+            self.planning,
+            self.focus_timer,
+            self.companion,
+            self.briefing,
+            self.chat,
+            self.online,
+        ):
+            service.setParent(self.manager)
+        self.animation.setParent(self.pet)
+        if api_keys is None:
+            self.api_keys.setParent(self.manager)
         self.chat.navigation_requested.connect(
             lambda page: self.manager.open_page(
                 self.manager.SETTINGS_PAGE if page == "settings" else 2
             )
         )
-        self.pet.timer_status = lambda: self.focus_timer.status
+        self.pet.timer_status = lambda: owner.focus_timer.status
         self.pet.character_requested.connect(
             lambda: self.manager.open_page(self.manager.CHARACTER_PAGE)
         )
@@ -122,7 +140,7 @@ class BuddyApplication:
         self.focus_timer.error.connect(
             lambda text: self.manager.statusBar().showMessage(text, 15000)
         )
-        self.tray = QSystemTrayIcon(icon, app)
+        self.tray = QSystemTrayIcon(icon, self.manager)
         self.tray.setToolTip(f"{APP_NAME} · 더블클릭하면 관리창")
         self.tray_menu = QMenu()
         self.tray_menu.addAction("관리창 열기", self.manager.open_page)
@@ -139,7 +157,7 @@ class BuddyApplication:
         self.tray_menu.addSeparator()
         self.tray_menu.addAction("프로그램 종료", self.quit)
         self.tray.setContextMenu(self.tray_menu)
-        self._tray_click = QTimer(app)
+        self._tray_click = QTimer(self.pet)
         self._tray_click.setSingleShot(True)
         self._tray_click.timeout.connect(self.toggle_pet)
         self.tray.activated.connect(self._tray_activated)
@@ -169,9 +187,10 @@ class BuddyApplication:
         self.notifications = NotificationService(
             self.planning,
             self.settings,
-            is_focusing=lambda: self.focus_timer.snapshot.focusing,
-            is_quiet=lambda: self.companion.quiet(),
+            is_focusing=lambda: owner.focus_timer.snapshot.focusing,
+            is_quiet=lambda: owner.companion.quiet(),
         )
+        self.notifications.setParent(self.manager)
         self.notifications.due.connect(self._notify)
         self.notifications.failed.connect(
             lambda text: self.manager.statusBar().showMessage(text, 15000)
@@ -184,7 +203,7 @@ class BuddyApplication:
             self.settings,
             self.focus_timer,
             self.companion,
-            character=lambda: self.characters.active_id,
+            character=lambda: owner.characters.active_id,
         )
         self.power_filter.on_power = self.celebration.stop
         self.manager.focus_page.bind_celebration(self.celebration)
@@ -192,18 +211,20 @@ class BuddyApplication:
             self.pet,
             self.settings,
             blocked=lambda: (
-                self._closed
-                or self.focus_timer.status in ("running", "paused")
-                or self.companion.quiet()
+                owner._closed
+                or owner.focus_timer.status in ("running", "paused")
+                or owner.companion.quiet()
             ),
             roaming_blocked=lambda: (
-                self.manager.isVisible() or (self.picker is not None and self.picker.isVisible())
+                owner.manager.isVisible() or (owner.picker is not None and owner.picker.isVisible())
             ),
         )
         self.focus_timer.updated.connect(self.behavior.refresh)
         self.companion.changed.connect(self.behavior.refresh)
-        self.companion.can_notify = lambda: self.pet.isVisible() and not self._closed
-        self.briefing.can_notify = lambda: self.presentation.requested_visible and not self._closed
+        self.companion.can_notify = lambda: owner.pet.isVisible() and not owner._closed
+        self.briefing.can_notify = lambda: (
+            owner.presentation.requested_visible and not owner._closed
+        )
         self.companion.failed.connect(
             lambda text: self.manager.statusBar().showMessage(text, 15000)
         )
@@ -454,6 +475,7 @@ class BuddyApplication:
         self.app.removeNativeEventFilter(self.power_filter)
         for signal, callback in (
             (self.app.aboutToQuit, self.shutdown),
+            (self.guard.activation_requested, self._activate_existing),
             (self.app.screenAdded, self._screen_added),
             (self.app.screenRemoved, self.pet.ensure_visible_position),
             (self.app.screenRemoved, self.manager.ensure_visible_position),

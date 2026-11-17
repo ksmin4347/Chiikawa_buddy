@@ -1,6 +1,7 @@
 from dataclasses import replace
 from datetime import timedelta
 from uuid import uuid4
+from weakref import proxy
 
 from PySide6.QtCore import QObject, Signal
 
@@ -33,7 +34,8 @@ class ChatService(QObject):
         self.characters = characters
         self.repository = ChatRepository(store)
         self.executor = CommandExecutor(store, planning, timer)
-        self.voice = DialogueVoice(lambda: self.character_id)
+        owner = proxy(self)
+        self.voice = DialogueVoice(lambda: owner.character_id)
         self._character_id = settings.current.chat_character_id
         self._memory_speakers: dict[int, str] = {}
         self._memory_modes: dict[int, str] = {}
